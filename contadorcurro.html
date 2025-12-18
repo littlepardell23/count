@@ -52,11 +52,17 @@ body {
 
 .red { background:red; }
 .today { border:2px solid #fff; }
+.clock {
+  font-size: 3em;
+  margin-bottom: 20px;
+  letter-spacing: 2px;
+}
 </style>
 </head>
 
 <body>
-
+ 
+<div id="clock" class="digital clock">00:00:00</div>
 <div class="counter small">
   <div>HOY</div>
   <div id="timeToday" class="digital">00:00</div>
@@ -189,6 +195,19 @@ function update(){
 createCalendar();
 update();
 setInterval(update,1000);
+
+const clockEl = document.getElementById("clock");
+
+function updateClock(){
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,"0");
+  const m = now.getMinutes().toString().padStart(2,"0");
+  const s = now.getSeconds().toString().padStart(2,"0");
+  clockEl.textContent = `${h}:${m}:${s}`;
+}
+
+updateClock();
+setInterval(updateClock,1000);
 </script>
 
 </body>
