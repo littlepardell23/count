@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Contador Curro</title>
+
+<!-- ICONO APP -->
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Curro">
+
+<style>
+body {
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:Arial,sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px;
+}
+
+.digital { font-family: 'Courier New', monospace; }
+.big { font-size: 2.6em; }
+.medium { font-size: 1.8em; }
+.small { font-size: 1.2em; }
+.tiny { font-size: 1em; color:#aaa; }
+
+.counter { text-align:center; margin:10px 0; }
+.line { width:80%; border-top:1px solid #fff; margin:15px 0; }
+
+#calendar {
+  display:grid;
+  grid-template-columns:repeat(7,40px);
+  gap:5px;
+  margin-top:20px;
+}
+
+.day {
+  width:40px;
+  height:40px;
+  line-height:40px;
+  text-align:center;
+  border:1px solid #fff;
+  border-radius:6px;
+}
+
+.red { background:red; }
+.today { border:2px solid #fff; }
+</style>
+</head>
+
+<body>
+
+<div class="counter small">
+  <div>HOY</div>
+  <div id="timeToday" class="digital">00:00</div>
+</div>
+
+<div class="counter medium">
+  <div>HOY €</div>
+  <div id="moneyToday" class="digital">0,00</div>
+</div>
+
+<div class="line"></div>
+
+<div class="counter big">
+  <div>TOTAL HORAS</div>
+  <div id="totalTime" class="digital big">00:00</div>
+</div>
+
+<div class="counter big">
+  <div>TOTAL €</div>
+  <div id="totalMoney" class="digital big">0,00</div>
+</div>
+
+<div class="line"></div>
+
+<div class="counter small">
+  <div>MEDIA / DÍA</div>
+  <div id="avgDay" class="digital">0,00</div>
+</div>
+
+<div class="counter tiny">
+  <div>DÍAS</div>
+  <div id="daysWorked" class="digital">0</div>
+</div>
+
+<div id="calendar"></div>
+
+<script>
+const WORK_START="14:00";
+const WORK_END="20:30";
+const RATE=14;
+
+const timeTodayEl=timeToday=document.getElementById("timeToday");
+const moneyTodayEl=document.getElementById("moneyToday");
+const totalTimeEl=document.getElementById("totalTime");
+const totalMoneyEl=document.getElementById("totalMoney");
+const avgDayEl=document.getElementById("avgDay");
+const daysWorkedEl=document.getElementById("daysWorked");
+const calendarEl=document.getElementById("calendar");
+
+const today=new Date();
+const year=today.getFullYear();
+const month=today.getMonth();
+const day=today.getDate();
+
+let redDays=JSON.parse(localStorage.getItem("redDays"))||[];
+let totalWorked=parseInt(localStorage.getItem("totalWorked")||0);
+let totalMoney=parseFloat(localStorage.getItem("totalMoney")||0);
+
+function parseTime(t){
+  const [h,m]=t.split(":").map(Number);
+  return h*60+m;
+}
+
+function formatTime(min){
+  const h=Math.floor(min/60);
+  const m=min%60;
+  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}`;
+}
+
+function createCalendar(){
+  calendarEl.innerHTML="";
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+
+  for(let i=0;i<firstDay;i++) calendarEl.appendChild(document.createElement("div"));
+
+  for(let d=1;d<=daysInMonth;d++){
+    const el=document.createElement("div");
+    el.className="day";
+    el.textContent=d;
+    if(redDays.includes(d)) el.classList.add("red");
+    if(d===day) el.classList.add("today");
+
+    el.onclick=()=>{
+      redDays.includes(d)
+        ? redDays=redDays.filter(x=>x!==d)
+        : redDays.push(d);
+      localStorage.setItem("redDays",JSON.stringify(redDays));
+      createCalendar();
+    };
+
+    calendarEl.appendChild(el);
+  }
+}
+
+function update(){
+  const now=new Date();
+  const start=parseTime(WORK_START);
+  const end=parseTime(WORK_END);
+  let current=now.getHours()*60+now.getMinutes();
+  if(current>end) current=end;
+
+  let workedToday=0;
+  if(!redDays.includes(day) && current>start){
+    workedToday=current-start;
+  }
+
+  const moneyToday=(workedToday/60)*RATE;
+
+  timeTodayEl.textContent=formatTime(workedToday);
+  moneyTodayEl.textContent=moneyToday.toFixed(2);
+
+  const lastDay=parseInt(localStorage.getItem("lastDay")||0);
+  if(lastDay!==day){
+    totalWorked+=workedToday;
+    totalMoney+=moneyToday;
+    localStorage.setItem("totalWorked",totalWorked);
+    localStorage.setItem("totalMoney",totalMoney);
+    localStorage.setItem("lastDay",day);
+  }
+
+  totalTimeEl.textContent=formatTime(totalWorked);
+  totalMoneyEl.textContent=totalMoney.toFixed(2);
+
+  const daysWorked=new Date(year,month+1,0).getDate()-redDays.length;
+  daysWorkedEl.textContent=daysWorked;
+  avgDayEl.textContent=(daysWorked?totalMoney/daysWorked:0).toFixed(2);
+}
+
+createCalendar();
+update();
+setInterval(update,1000);
+</script>
+
+</body>
+</html>
