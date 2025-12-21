@@ -1,219 +1,166 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Curro</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="icon" href="icon.png">
+<title>Work Counter</title>
+
+<!-- ICONO APP -->
 <link rel="apple-touch-icon" href="icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+<link rel="icon" href="icon.png">
 
 <style>
-body{
-  margin:0;
-  background:#000;
-  color:#fff;
-  font-family:Arial,sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:20px;
+@font-face {
+  font-family: 'Digital';
+  src: url('https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf');
 }
 
-.digital{font-family:'Orbitron', monospace;}
-.clock{font-size:3.4em;margin-bottom:25px;letter-spacing:3px;}
-
-.counter{text-align:center;margin:10px 0;}
-.big{font-size:2.6em;}
-.medium{font-size:1.8em;}
-.small{font-size:1.2em;}
-.tiny{font-size:1em;color:#aaa;}
-
-.line{width:80%;border-top:1px solid #fff;margin:15px 0;}
-
-.weekdays, #calendar{
-  display:grid;
-  grid-template-columns:repeat(7,40px);
-  gap:6px;
+body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: Arial, sans-serif;
 }
 
-.weekdays{font-size:.8em;color:#aaa;margin-bottom:6px;}
-
-.day{
-  width:40px;height:40px;line-height:40px;
-  text-align:center;border:1px solid #fff;border-radius:6px;
+.app {
+  text-align: center;
+  padding: 20px;
 }
 
-.red{background:red;}
-.today{border:2px solid #fff;}
+h2 {
+  font-size: 12px;
+  font-weight: 300;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.number {
+  font-family: 'Digital';
+  font-size: 42px;
+}
+
+.big {
+  font-size: 64px;
+}
+
+.line {
+  height: 1px;
+  background: #fff;
+  opacity: 0.2;
+  margin: 20px 0;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.day {
+  padding: 10px 0;
+  border-radius: 6px;
+  border: 1px solid #333;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.day.red {
+  background: #400;
+}
 </style>
 </head>
 
 <body>
+<div class="app">
 
-<div id="clock" class="digital clock">00:00:00</div>
+  <h2>DÍAS SEGUIDOS</h2>
+  <div class="number big" id="streak">0</div>
 
-<div class="counter small">
-  <div>HOY</div>
-  <div id="timeToday" class="digital">00:00</div>
+  <div class="line"></div>
+
+  <h2>TOTAL €</h2>
+  <div class="number big" id="money">0,00</div>
+
+  <div class="line"></div>
+
+  <h2>CALENDARIO</h2>
+  <div class="calendar" id="calendar"></div>
+
 </div>
-
-<div class="counter medium">
-  <div>HOY €</div>
-  <div id="moneyToday" class="digital">0,00</div>
-</div>
-
-<div class="line"></div>
-
-<div class="counter big">
-  <div>TOTAL HORAS</div>
-  <div id="totalTime" class="digital">00:00</div>
-</div>
-
-<div class="counter big">
-  <div>TOTAL €</div>
-  <div id="totalMoney" class="digital">0,00</div>
-</div>
-
-<div class="line"></div>
-
-<div class="counter small">
-  <div>MEDIA / DÍA</div>
-  <div id="avgDay" class="digital">0,00</div>
-</div>
-
-<div class="counter small">
-  <div>DÍAS SEGUIDOS</div>
-  <div id="streak" class="digital">0</div>
-</div>
-
-<div class="counter small">
-  <div>DÍAS DE FIESTA</div>
-  <div id="restDays" class="digital">0</div>
-</div>
-
-<div class="weekdays">
-  <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
-</div>
-
-<div id="calendar"></div>
 
 <script>
-const RATE=14;
-const DEFAULT_START="14:00";
-const DEFAULT_END="20:30";
+const PRICE_PER_DAY = 90; // € por día
+const calendarEl = document.getElementById("calendar");
 
-const clockEl=document.getElementById("clock");
-const timeTodayEl=document.getElementById("timeToday");
-const moneyTodayEl=document.getElementById("moneyToday");
-const totalTimeEl=document.getElementById("totalTime");
-const totalMoneyEl=document.getElementById("totalMoney");
-const avgDayEl=document.getElementById("avgDay");
-const streakEl=document.getElementById("streak");
-const restDaysEl=document.getElementById("restDays");
-const calendarEl=document.getElementById("calendar");
+let days = JSON.parse(localStorage.getItem("days")) || {};
 
-const today=new Date();
-const year=today.getFullYear();
-const month=today.getMonth();
-const day=today.getDate();
-
-let redDays=JSON.parse(localStorage.getItem("redDays"))||[];
-let customHours=JSON.parse(localStorage.getItem("customHours"))||{};
-let totalWorked=parseInt(localStorage.getItem("totalWorked")||0);
-let totalMoney=parseFloat(localStorage.getItem("totalMoney")||0);
-
-function parseTime(t){const[a,b]=t.split(":").map(Number);return a*60+b;}
-function formatTime(m){const h=Math.floor(m/60),mm=m%60;return`${h.toString().padStart(2,"0")}:${mm.toString().padStart(2,"0")}`;}
-
-function updateClock(){
-  const n=new Date();
-  clockEl.textContent=`${n.getHours().toString().padStart(2,"0")}:${n.getMinutes().toString().padStart(2,"0")}:${n.getSeconds().toString().padStart(2,"0")}`;
+function save() {
+  localStorage.setItem("days", JSON.stringify(days));
 }
 
-function createCalendar(){
-  calendarEl.innerHTML="";
-  const first=new Date(year,month,1).getDay()||7;
-  const days=new Date(year,month+1,0).getDate();
-  for(let i=1;i<first;i++)calendarEl.appendChild(document.createElement("div"));
-  for(let d=1;d<=days;d++){
-    const el=document.createElement("div");
-    el.className="day";
-    el.textContent=d;
-    if(redDays.includes(d))el.classList.add("red");
-    if(d===day)el.classList.add("today");
-    el.onclick=()=>{
-      if(confirm("¿Día libre?")){
-        redDays.push(d);
-        delete customHours[d];
-      }else{
-        redDays=redDays.filter(x=>x!==d);
-        const s=prompt("Inicio",DEFAULT_START);
-        const e=prompt("Fin",DEFAULT_END);
-        if(s&&e)customHours[d]={start:s,end:e};
-      }
-      localStorage.setItem("redDays",JSON.stringify(redDays));
-      localStorage.setItem("customHours",JSON.stringify(customHours));
-      createCalendar();
+function renderCalendar() {
+  calendarEl.innerHTML = "";
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  for (let d = 1; d <= lastDay; d++) {
+    const dateKey = `${year}-${month + 1}-${d}`;
+    const div = document.createElement("div");
+    div.className = "day";
+    div.innerText = d;
+
+    if (days[dateKey] === "off") div.classList.add("red");
+
+    div.onclick = () => {
+      days[dateKey] = days[dateKey] === "off" ? "work" : "off";
+      save();
+      renderCalendar();
+      calculate();
     };
-    calendarEl.appendChild(el);
+
+    calendarEl.appendChild(div);
   }
 }
 
-function calcStreak(){
-  let streak=0;
-  for(let d=day;d>=1;d--){
-    if(redDays.includes(d))break;
-    streak++;
+function calculate() {
+  const workedDays = Object.keys(days)
+    .filter(d => days[d] !== "off")
+    .sort();
+
+  // 💰 DINERO
+  const money = workedDays.length * PRICE_PER_DAY;
+  document.getElementById("money").innerText =
+    money.toLocaleString("es-ES", { minimumFractionDigits: 2 });
+
+  // 🔥 RACHA
+  let streak = 0;
+  if (workedDays.length > 0) {
+    let index = workedDays.length - 1;
+    streak = 1;
+
+    while (index > 0) {
+      const current = new Date(workedDays[index]);
+      const prev = new Date(workedDays[index - 1]);
+      const diff = (current - prev) / (1000 * 60 * 60 * 24);
+
+      if (diff === 1) {
+        streak++;
+        index--;
+      } else {
+        break;
+      }
+    }
   }
-  return streak;
+
+  document.getElementById("streak").innerText = streak;
 }
 
-function update(){
-  let workedToday=0;
-  if(!redDays.includes(day)){
-    const h=customHours[day]||{start:DEFAULT_START,end:DEFAULT_END};
-    const now=new Date();
-    let cur=now.getHours()*60+now.getMinutes();
-    const s=parseTime(h.start),e=parseTime(h.end);
-    if(cur>e)cur=e;
-    if(cur>s)workedToday=cur-s;
-  }
-
-  const moneyToday=(workedToday/60)*RATE;
-  timeTodayEl.textContent=formatTime(workedToday);
-  moneyTodayEl.textContent=moneyToday.toFixed(2);
-
-  const last=parseInt(localStorage.getItem("lastDay")||0);
-  if(last!==day){
-    totalWorked+=workedToday;
-    totalMoney+=moneyToday;
-    localStorage.setItem("totalWorked",totalWorked);
-    localStorage.setItem("totalMoney",totalMoney);
-    localStorage.setItem("lastDay",day);
-  }
-
-  totalTimeEl.textContent=formatTime(totalWorked);
-  totalMoneyEl.textContent=totalMoney.toFixed(2);
-
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const workedDays=daysInMonth-redDays.length;
-  avgDayEl.textContent=(workedDays?totalMoney/workedDays:0).toFixed(2);
-
-  streakEl.textContent=calcStreak();
-  restDaysEl.textContent=redDays.length;
-}
-
-createCalendar();
-updateClock();
-update();
-setInterval(updateClock,1000);
-setInterval(update,1000);
+renderCalendar();
+calculate();
 </script>
-
 </body>
 </html>
