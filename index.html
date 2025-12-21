@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work App</title>
 
-<title>Work Counter</title>
-
-<!-- ICONO APP -->
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
 
@@ -30,43 +28,53 @@ body {
 
 h2 {
   font-size: 12px;
-  font-weight: 300;
-  margin-bottom: 4px;
-  opacity: 0.7;
+  opacity: .6;
+  margin: 10px 0 4px;
 }
 
-.number {
-  font-family: 'Digital';
-  font-size: 42px;
+.num {
+  font-family: Digital;
+  font-size: 38px;
 }
 
 .big {
-  font-size: 64px;
+  font-size: 60px;
 }
 
 .line {
   height: 1px;
   background: #fff;
-  opacity: 0.2;
-  margin: 20px 0;
+  opacity: .2;
+  margin: 18px 0;
 }
 
 .calendar {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7,1fr);
   gap: 6px;
 }
 
+.week {
+  font-size: 10px;
+  opacity: .5;
+}
+
 .day {
-  padding: 10px 0;
-  border-radius: 6px;
+  padding: 8px 0;
   border: 1px solid #333;
-  font-size: 12px;
-  cursor: pointer;
+  border-radius: 6px;
+  font-size: 11px;
 }
 
 .day.red {
-  background: #400;
+  background:#400;
+}
+
+select {
+  background:#000;
+  color:#fff;
+  border:1px solid #333;
+  font-size:10px;
 }
 </style>
 </head>
@@ -74,93 +82,139 @@ h2 {
 <body>
 <div class="app">
 
-  <h2>DÍAS SEGUIDOS</h2>
-  <div class="number big" id="streak">0</div>
+<h2>HOY</h2>
+<div class="num" id="todayTime">00:00</div>
 
-  <div class="line"></div>
+<h2>HOY €</h2>
+<div class="num">€ <span id="todayMoney">0,00</span></div>
 
-  <h2>TOTAL €</h2>
-  <div class="number big" id="money">0,00</div>
+<div class="line"></div>
 
-  <div class="line"></div>
+<h2>TOTAL HORAS</h2>
+<div class="num big" id="totalTime">0:00</div>
 
-  <h2>CALENDARIO</h2>
-  <div class="calendar" id="calendar"></div>
+<h2>TOTAL €</h2>
+<div class="num big">€ <span id="totalMoney">0,00</span></div>
+
+<div class="line"></div>
+
+<h2>DÍAS SEGUIDOS</h2>
+<div class="num" id="streak">0</div>
+
+<h2>DÍAS DE FIESTA</h2>
+<div class="num" id="offStreak">0</div>
+
+<div class="line"></div>
+
+<div class="calendar" id="calendar"></div>
 
 </div>
 
 <script>
-const PRICE_PER_DAY = 90; // € por día
-const calendarEl = document.getElementById("calendar");
+const PRICE_HOUR = 15;
+const STORAGE = "workDays";
+let days = JSON.parse(localStorage.getItem(STORAGE)) || {};
 
-let days = JSON.parse(localStorage.getItem("days")) || {};
+const cal = document.getElementById("calendar");
 
 function save() {
-  localStorage.setItem("days", JSON.stringify(days));
+  localStorage.setItem(STORAGE, JSON.stringify(days));
 }
 
-function renderCalendar() {
-  calendarEl.innerHTML = "";
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+function hoursBetween(a,b){
+  return (new Date(b)-new Date(a))/36e5;
+}
 
-  const lastDay = new Date(year, month + 1, 0).getDate();
+function renderCalendar(){
+  cal.innerHTML="";
+  const now=new Date();
+  const y=now.getFullYear();
+  const m=now.getMonth();
+  const last=new Date(y,m+1,0).getDate();
+  const names=["L","M","X","J","V","S","D"];
+  names.forEach(n=>{
+    let w=document.createElement("div");
+    w.className="week";
+    w.textContent=n;
+    cal.appendChild(w);
+  });
 
-  for (let d = 1; d <= lastDay; d++) {
-    const dateKey = `${year}-${month + 1}-${d}`;
-    const div = document.createElement("div");
-    div.className = "day";
-    div.innerText = d;
+  for(let d=1;d<=last;d++){
+    const key=`${y}-${m+1}-${d}`;
+    const div=document.createElement("div");
+    div.className="day";
+    if(days[key]?.off) div.classList.add("red");
 
-    if (days[dateKey] === "off") div.classList.add("red");
+    const sel=document.createElement("select");
+    ["mañana","tarde","completo"].forEach(o=>{
+      let op=document.createElement("option");
+      op.value=o; op.text=o;
+      sel.appendChild(op);
+    });
 
-    div.onclick = () => {
-      days[dateKey] = days[dateKey] === "off" ? "work" : "off";
-      save();
-      renderCalendar();
-      calculate();
+    sel.value=days[key]?.shift||"completo";
+
+    sel.onchange=()=>{
+      days[key]={off:false,shift:sel.value};
+      save(); calc();
     };
 
-    calendarEl.appendChild(div);
+    div.innerHTML=`<div>${d}</div>`;
+    div.appendChild(sel);
+
+    div.onclick=(e)=>{
+      if(e.target.tagName==="SELECT")return;
+      days[key]={off:!days[key]?.off,shift:sel.value};
+      save(); renderCalendar(); calc();
+    };
+
+    cal.appendChild(div);
   }
 }
 
-function calculate() {
-  const workedDays = Object.keys(days)
-    .filter(d => days[d] !== "off")
-    .sort();
+function calc(){
+  let totalH=0,totalM=0;
+  let worked=[],off=[];
 
-  // 💰 DINERO
-  const money = workedDays.length * PRICE_PER_DAY;
-  document.getElementById("money").innerText =
-    money.toLocaleString("es-ES", { minimumFractionDigits: 2 });
-
-  // 🔥 RACHA
-  let streak = 0;
-  if (workedDays.length > 0) {
-    let index = workedDays.length - 1;
-    streak = 1;
-
-    while (index > 0) {
-      const current = new Date(workedDays[index]);
-      const prev = new Date(workedDays[index - 1]);
-      const diff = (current - prev) / (1000 * 60 * 60 * 24);
-
-      if (diff === 1) {
-        streak++;
-        index--;
-      } else {
-        break;
-      }
-    }
+  for(let k in days){
+    if(days[k].off){ off.push(k); continue; }
+    worked.push(k);
+    let s=days[k].shift;
+    if(s==="mañana") totalH+=6;
+    if(s==="tarde") totalH+=6.5;
+    if(s==="completo") totalH+=12.5;
   }
 
-  document.getElementById("streak").innerText = streak;
+  totalM=totalH*PRICE_HOUR;
+
+  document.getElementById("totalTime").textContent=
+    Math.floor(totalH)+":"+String(Math.round((totalH%1)*60)).padStart(2,"0");
+
+  document.getElementById("totalMoney").textContent=
+    totalM.toLocaleString("es-ES",{minimumFractionDigits:2});
+
+  worked.sort();
+  let streak=0;
+  for(let i=worked.length-1;i>=0;i--){
+    if(i===worked.length-1 || 
+      (new Date(worked[i+1])-new Date(worked[i]))===86400000) streak++;
+    else break;
+  }
+
+  off.sort();
+  let offS=0;
+  for(let i=off.length-1;i>=0;i--){
+    if(i===off.length-1 || 
+      (new Date(off[i+1])-new Date(off[i]))===86400000) offS++;
+    else break;
+  }
+
+  document.getElementById("streak").textContent=streak;
+  document.getElementById("offStreak").textContent=offS;
 }
 
 renderCalendar();
-calculate();
+calc();
 </script>
 </body>
 </html>
