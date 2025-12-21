@@ -3,22 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Contador Curro</title>
+
+<!-- ICONO APP -->
 <link rel="icon" href="icon.png" type="image/png">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Curro">
+
 <style>
-body { margin:0; background:#000; color:#fff; font-family:Arial,sans-serif; display:flex; flex-direction:column; align-items:center; padding:20px; }
-.digital { font-family: 'Courier New', monospace; } .big { font-size: 2.6em; } .medium { font-size: 1.8em; } .small { font-size: 1.2em; } .tiny { font-size: 1em; color:#aaa; }
-.counter { text-align:center; margin:10px 0; } .line { width:80%; border-top:1px solid #fff; margin:15px 0; }
-#calendar { display:grid; grid-template-columns:repeat(7,40px); gap:5px; margin-top:20px; }
-.day { width:40px; height:40px; line-height:40px; text-align:center; border:1px solid #fff; border-radius:6px; }
-.red { background:red; } .today { border:2px solid #fff; }
+body {
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:Arial,sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px;
+}
+
+/* TIPOS */
+.digital { font-family: 'Courier New', monospace; }
+.big { font-size: 2.6em; }
+.medium { font-size: 1.8em; }
+.small { font-size: 1.2em; }
+.tiny { font-size: 1em; color:#aaa; }
+
+/* RELOJ */
+.clock {
+  font-size: 3.5em;
+  margin-bottom: 25px;
+  letter-spacing: 3px;
+}
+
+/* BLOQUES */
+.counter { text-align:center; margin:10px 0; }
+.line { width:80%; border-top:1px solid #fff; margin:15px 0; }
+
+/* CALENDARIO */
+#calendar {
+  display:grid;
+  grid-template-columns:repeat(7,40px);
+  gap:6px;
+  margin-top:20px;
+}
+
+.day {
+  width:40px;
+  height:40px;
+  line-height:40px;
+  text-align:center;
+  border:1px solid #fff;
+  border-radius:6px;
+}
+
+.red { background:red; }
+.today { border:2px solid #fff; }
 </style>
 </head>
+
 <body>
+
+<!-- ⏰ RELOJ -->
+<div id="clock" class="digital clock">00:00:00</div>
 
 <div class="counter small">
   <div>HOY</div>
@@ -57,10 +107,13 @@ body { margin:0; background:#000; color:#fff; font-family:Arial,sans-serif; disp
 <div id="calendar"></div>
 
 <script>
+/* CONFIG */
 const WORK_START="14:00";
 const WORK_END="20:30";
 const RATE=14;
 
+/* ELEMENTOS */
+const clockEl=document.getElementById("clock");
 const timeTodayEl=document.getElementById("timeToday");
 const moneyTodayEl=document.getElementById("moneyToday");
 const totalTimeEl=document.getElementById("totalTime");
@@ -69,14 +122,18 @@ const avgDayEl=document.getElementById("avgDay");
 const daysWorkedEl=document.getElementById("daysWorked");
 const calendarEl=document.getElementById("calendar");
 
+/* FECHA */
 const today=new Date();
 const year=today.getFullYear();
 const month=today.getMonth();
 const day=today.getDate();
 
-let redDays=JSON.parse(localStorage.getItem("redDays")||"[]");
-let daysMap=JSON.parse(localStorage.getItem("daysMap")||"{}");
+/* STORAGE */
+let redDays=JSON.parse(localStorage.getItem("redDays"))||[];
+let totalWorked=parseInt(localStorage.getItem("totalWorked")||0);
+let totalMoney=parseFloat(localStorage.getItem("totalMoney")||0);
 
+/* UTILS */
 function parseTime(t){
   const [h,m]=t.split(":").map(Number);
   return h*60+m;
@@ -86,8 +143,17 @@ function formatTime(min){
   const m=min%60;
   return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}`;
 }
-function getKey(y,m,d){ return `${y}-${(m+1).toString().padStart(2,"0")}-${d.toString().padStart(2,"0")}`; }
 
+/* RELOJ */
+function updateClock(){
+  const n=new Date();
+  const h=n.getHours().toString().padStart(2,"0");
+  const m=n.getMinutes().toString().padStart(2,"0");
+  const s=n.getSeconds().toString().padStart(2,"0");
+  clockEl.textContent=`${h}:${m}:${s}`;
+}
+
+/* CALENDARIO */
 function createCalendar(){
   calendarEl.innerHTML="";
   const firstDay=new Date(year,month,1).getDay();
@@ -103,25 +169,17 @@ function createCalendar(){
     if(d===day) el.classList.add("today");
 
     el.onclick=()=>{
-      const key=getKey(year,month,d);
-      if(redDays.includes(d)){
-        redDays=redDays.filter(x=>x!==d);
-        // restore day entry deletion to allow recalculation
-        delete daysMap[key];
-      } else {
-        redDays.push(d);
-        daysMap[key]=0;
-      }
+      redDays.includes(d)
+        ? redDays=redDays.filter(x=>x!==d)
+        : redDays.push(d);
       localStorage.setItem("redDays",JSON.stringify(redDays));
-      localStorage.setItem("daysMap",JSON.stringify(daysMap));
       createCalendar();
-      update(); // refrescar
     };
-
     calendarEl.appendChild(el);
   }
 }
 
+/* CONTADORES */
 function update(){
   const now=new Date();
   const start=parseTime(WORK_START);
@@ -129,38 +187,38 @@ function update(){
   let current=now.getHours()*60+now.getMinutes();
   if(current>end) current=end;
 
-  const todayKey=getKey(year,month,day);
   let workedToday=0;
   if(!redDays.includes(day) && current>start){
     workedToday=current-start;
-  } else {
-    workedToday=0;
   }
-
-  // save today's minutes (keeps single source of truth)
-  daysMap[todayKey]=workedToday;
-  localStorage.setItem("daysMap",JSON.stringify(daysMap));
 
   const moneyToday=(workedToday/60)*RATE;
 
   timeTodayEl.textContent=formatTime(workedToday);
   moneyTodayEl.textContent=moneyToday.toFixed(2);
 
-  // compute totals from daysMap
-  const totalWorked = Object.values(daysMap).reduce((s,v)=>s+Number(v||0),0);
-  const totalMoney = (totalWorked/60)*RATE;
+  const lastDay=parseInt(localStorage.getItem("lastDay")||0);
+  if(lastDay!==day){
+    totalWorked+=workedToday;
+    totalMoney+=moneyToday;
+    localStorage.setItem("totalWorked",totalWorked);
+    localStorage.setItem("totalMoney",totalMoney);
+    localStorage.setItem("lastDay",day);
+  }
 
   totalTimeEl.textContent=formatTime(totalWorked);
   totalMoneyEl.textContent=totalMoney.toFixed(2);
 
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const daysWorkedCount = Math.max(0, daysInMonth - redDays.length);
-  daysWorkedEl.textContent=daysWorkedCount;
-  avgDayEl.textContent=(daysWorkedCount? (totalMoney/daysWorkedCount):0).toFixed(2);
+  const daysWorked=new Date(year,month+1,0).getDate()-redDays.length;
+  daysWorkedEl.textContent=daysWorked;
+  avgDayEl.textContent=(daysWorked?totalMoney/daysWorked:0).toFixed(2);
 }
 
+/* INIT */
 createCalendar();
+updateClock();
 update();
+setInterval(updateClock,1000);
 setInterval(update,1000);
 </script>
 
