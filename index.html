@@ -3,242 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Work</title>
+<title>Contador Curro</title>
 
-<link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <style>
-@font-face {
-  font-family: Digital;
-  src: url('https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf');
+body{
+  margin:0;
+  background:#000;
+  color:#fff;
+  font-family:Arial,sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px;
 }
 
-body {
-  margin: 0;
-  background: #000;
-  color: #fff;
-  font-family: Arial, sans-serif;
+.digital{font-family:'Courier New',monospace;}
+.big{font-size:2.6em}
+.medium{font-size:1.8em}
+.small{font-size:1.2em}
+.tiny{font-size:1em;color:#aaa}
+
+.clock{
+  font-size:3.5em;
+  letter-spacing:3px;
+  margin-bottom:25px;
 }
 
-.app {
-  padding: 20px;
-  text-align: center;
+.counter{text-align:center;margin:10px 0}
+.line{width:80%;border-top:1px solid #fff;margin:15px 0}
+
+#calendar{
+  display:grid;
+  grid-template-columns:repeat(7,40px);
+  gap:6px;
+  margin-top:20px;
 }
 
-.label {
-  font-size: 11px;
-  opacity: .6;
-  margin-top: 14px;
+.day{
+  width:40px;
+  height:40px;
+  line-height:40px;
+  text-align:center;
+  border:1px solid #fff;
+  border-radius:6px;
 }
 
-.num {
-  font-family: Digital;
-  font-size: 38px;
-}
-
-.big {
-  font-size: 64px;
-}
-
-.line {
-  height: 1px;
-  background: #fff;
-  opacity: .2;
-  margin: 18px 0;
-}
-
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-
-.week {
-  font-size: 10px;
-  opacity: .5;
-}
-
-.day {
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 6px 0;
-  font-size: 11px;
-}
-
-.day.red {
-  background: #400;
-}
-
-input {
-  width: 90%;
-  background: #000;
-  color: #fff;
-  border: 1px solid #333;
-  font-size: 10px;
-}
+.red{background:#400}
+.today{border:2px solid #fff}
 </style>
 </head>
 
 <body>
-<div class="app">
 
-<div class="label">HOY</div>
-<div class="num" id="todayTime">00:00</div>
+<div id="clock" class="digital clock">00:00:00</div>
 
-<div class="label">HOY €</div>
-<div class="num">€ <span id="todayMoney">0,00</span></div>
-
-<div class="line"></div>
-
-<div class="label">TOTAL HORAS</div>
-<div class="num big" id="totalTime">0:00</div>
-
-<div class="label">TOTAL €</div>
-<div class="num big">€ <span id="totalMoney">0,00</span></div>
-
-<div class="line"></div>
-
-<div class="label">DÍAS SEGUIDOS</div>
-<div class="num" id="streakWork">0</div>
-
-<div class="label">DÍAS DE FIESTA</div>
-<div class="num" id="streakOff">0</div>
-
-<div class="line"></div>
-
-<div class="calendar" id="calendar"></div>
-
+<div class="counter small">
+  <div>HOY</div>
+  <div id="timeToday" class="digital">00:00</div>
 </div>
 
+<div class="counter medium">
+  <div>HOY €</div>
+  <div id="moneyToday" class="digital">0,00</div>
+</div>
+
+<div class="line"></div>
+
+<div class="counter big">
+  <div>TOTAL HORAS</div>
+  <div id="totalTime" class="digital big">00:00</div>
+</div>
+
+<div class="counter big">
+  <div>TOTAL €</div>
+  <div id="totalMoney" class="digital big">0,00</div>
+</div>
+
+<div class="line"></div>
+
+<div class="counter small">
+  <div>MEDIA / DÍA</div>
+  <div id="avgDay" class="digital">0,00</div>
+</div>
+
+<div class="counter tiny">
+  <div>DÍAS SEGUIDOS</div>
+  <div id="streak" class="digital">0</div>
+</div>
+
+<div id="calendar"></div>
+
 <script>
-const PRICE = 15;
-const STORE = "workApp";
-let data = JSON.parse(localStorage.getItem(STORE)) || {};
+/* CONFIG */
+const START="14:00";
+const END="20:30";
+const RATE=14;
 
-function save() {
-  localStorage.setItem(STORE, JSON.stringify(data));
+/* STORAGE */
+let data=JSON.parse(localStorage.getItem("workData"))||{};
+
+/* UTILS */
+const parse=t=>{const[a,b]=t.split(":").map(Number);return a*60+b}
+const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`
+const key=d=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
+
+/* CLOCK */
+function clock(){
+  const n=new Date();
+  document.getElementById("clock").textContent=
+  `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}`
 }
 
-function hours(start, end) {
-  if (!start || !end) return 0;
-  return (new Date(`1970-01-01T${end}`) -
-          new Date(`1970-01-01T${start}`)) / 36e5;
+/* CALENDAR */
+function calendar(){
+  const cal=document.getElementById("calendar");
+  cal.innerHTML="";
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth(),t=now.getDate();
+  const first=new Date(y,m,1).getDay();
+  const days=new Date(y,m+1,0).getDate();
+
+  for(let i=0;i<first;i++)cal.appendChild(document.createElement("div"));
+
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${m+1}-${d}`;
+    if(!data[k])data[k]={off:false,minutes:0};
+
+    const el=document.createElement("div");
+    el.className="day";
+    el.textContent=d;
+    if(data[k].off)el.classList.add("red");
+    if(d===t)el.classList.add("today");
+
+    el.onclick=()=>{
+      data[k].off=!data[k].off;
+      localStorage.setItem("workData",JSON.stringify(data));
+      calendar();update();
+    };
+    cal.appendChild(el);
+  }
 }
 
-function renderCalendar() {
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const last = new Date(y, m + 1, 0).getDate();
-  const week = ["L","M","X","J","V","S","D"];
+/* UPDATE */
+function update(){
+  const now=new Date();
+  const k=key(now);
+  if(!data[k])data[k]={off:false,minutes:0};
 
-  week.forEach(d => {
-    const w = document.createElement("div");
-    w.className = "week";
-    w.textContent = d;
-    cal.appendChild(w);
+  let todayMin=0;
+  if(!data[k].off){
+    const s=parse(START);
+    const e=parse(END);
+    let cur=now.getHours()*60+now.getMinutes();
+    if(cur>e)cur=e;
+    if(cur>s)todayMin=cur-s;
+  }
+
+  document.getElementById("timeToday").textContent=fmt(todayMin);
+  document.getElementById("moneyToday").textContent=((todayMin/60)*RATE).toFixed(2);
+
+  // guardar solo cuando acaba el día
+  if(todayMin>0 && data[k].minutes!==todayMin){
+    data[k].minutes=todayMin;
+    localStorage.setItem("workData",JSON.stringify(data));
+  }
+
+  let totalMin=0,days=0;
+  Object.values(data).forEach(d=>{
+    if(!d.off && d.minutes>0){
+      totalMin+=d.minutes;
+      days++;
+    }
   });
 
-  for (let d = 1; d <= last; d++) {
-    const key = `${y}-${m+1}-${d}`;
-    if (!data[key]) data[key] = { off:false, start:"", end:"" };
+  document.getElementById("totalTime").textContent=fmt(totalMin);
+  document.getElementById("totalMoney").textContent=((totalMin/60)*RATE).toFixed(2);
+  document.getElementById("avgDay").textContent=(days?((totalMin/60)*RATE/days):0).toFixed(2);
 
-    const box = document.createElement("div");
-    box.className = "day";
-    if (data[key].off) box.classList.add("red");
-
-    box.innerHTML = `
-      <div>${d}</div>
-      <input type="time" value="${data[key].start}">
-      <input type="time" value="${data[key].end}">
-    `;
-
-    const inputs = box.querySelectorAll("input");
-
-    inputs[0].onchange = e => {
-      data[key].start = e.target.value;
-      data[key].off = false;
-      save(); calc();
-    };
-
-    inputs[1].onchange = e => {
-      data[key].end = e.target.value;
-      data[key].off = false;
-      save(); calc();
-    };
-
-    box.onclick = e => {
-      if (e.target.tagName === "INPUT") return;
-      data[key].off = !data[key].off;
-      save(); renderCalendar(); calc();
-    };
-
-    cal.appendChild(box);
-  }
-}
-
-function calc() {
-  let totalH = 0;
-  let todayH = 0;
-  let worked = [];
-  let off = [];
-
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
-
-  for (let k in data) {
-    if (data[k].off) {
-      off.push(k);
-      continue;
-    }
-
-    const h = hours(data[k].start, data[k].end);
-    if (h > 0) {
-      worked.push(k);
-      totalH += h;
-      if (k === todayKey) todayH = h;
-    }
-  }
-
-  document.getElementById("totalTime").textContent =
-    Math.floor(totalH) + ":" + String(Math.round((totalH%1)*60)).padStart(2,"0");
-
-  document.getElementById("totalMoney").textContent =
-    (totalH * PRICE).toLocaleString("es-ES",{minimumFractionDigits:2});
-
-  document.getElementById("todayTime").textContent =
-    Math.floor(todayH) + ":" + String(Math.round((todayH%1)*60)).padStart(2,"0");
-
-  document.getElementById("todayMoney").textContent =
-    (todayH * PRICE).toLocaleString("es-ES",{minimumFractionDigits:2});
-
-  worked.sort();
-  off.sort();
-
-  let sw = 0;
-  for (let i = worked.length - 1; i >= 0; i--) {
-    if (i === worked.length - 1 ||
-        new Date(worked[i+1]) - new Date(worked[i]) === 86400000) sw++;
+  // racha
+  const keys=Object.keys(data).sort();
+  let streak=0;
+  for(let i=keys.length-1;i>=0;i--){
+    const d=data[keys[i]];
+    if(!d.off && d.minutes>0)streak++;
     else break;
   }
-
-  let so = 0;
-  for (let i = off.length - 1; i >= 0; i--) {
-    if (i === off.length - 1 ||
-        new Date(off[i+1]) - new Date(off[i]) === 86400000) so++;
-    else break;
-  }
-
-  document.getElementById("streakWork").textContent = sw;
-  document.getElementById("streakOff").textContent = so;
+  document.getElementById("streak").textContent=streak;
 }
 
-renderCalendar();
-calc();
-setInterval(calc, 1000);
+calendar();
+clock();
+update();
+setInterval(clock,1000);
+setInterval(update,1000);
 </script>
+
 </body>
 </html>
