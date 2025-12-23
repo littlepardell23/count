@@ -104,8 +104,8 @@ body{
   </div>
   <div class="box">
     <div class="small">TOTAL VIDA €</div>
-    <div class="big" id="lifeMoney">0.00</div>
-    <div class="small" id="lifeInfo">Has ganado 8.597 € → 622,75 horas.</div>
+      <div class="big" id="lifeMoney">0.00</div>
+      <div class="small" id="lifeInfo">8.597 € → 622,75</div>
   </div>
   <div class="box">
     <div class="small">MES €</div>
@@ -130,7 +130,7 @@ body{
   </div>
 </div>
 
-<div class="hist-btn" onclick="openHistory()">HISTORIAL</div>
+<!-- historial eliminado -->
 
 </div>
 
@@ -235,7 +235,8 @@ function render(){
 
   const lifeMoneyTotal = totalMin*RATE;
   document.getElementById("lifeMoney").innerText=fmtNumber(lifeMoneyTotal);
-  document.getElementById("lifeInfo").innerText = `Has ganado ${fmtNumber(lifeMoneyTotal)} € → ${(totalMin/60).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2})} horas.`;
+  // Actualizar lifeInfo dinámicamente con formato español
+  document.getElementById("lifeInfo").innerText = `${fmtNumber(lifeMoneyTotal)} € → ${(totalMin/60).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
   document.getElementById("morningDays").innerText=morning;
   document.getElementById("afternoonDays").innerText=afternoon;
