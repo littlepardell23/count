@@ -61,6 +61,7 @@ body{
 }
 .work{background:#fff;color:#000}
 .festivo{outline:2px solid #fff}
+.off{outline:2px solid red}
 
 /* POPUPS */
 .overlay{
@@ -371,7 +372,7 @@ function render(){
     el.textContent=i;
     const conf = days[k(i)];
     if(conf){
-      if(conf.off){ el.classList.add('festivo'); }
+      if(conf.off){ el.classList.add('off'); }
       else { el.classList.add('work'); if(conf.festivo) el.classList.add('festivo'); }
     }
     el.onclick=()=>openDay(i);
