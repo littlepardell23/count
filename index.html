@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Curro</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
 
@@ -21,7 +20,6 @@ body{
   width:100%;
   padding:16px;
 }
-h1{text-align:center;margin-bottom:10px}
 .stats{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -29,10 +27,11 @@ h1{text-align:center;margin-bottom:10px}
 }
 .card{
   border:1px solid #fff;
-  padding:12px;
+  padding:10px;
   text-align:center;
+  font-size:14px;
 }
-.big{font-size:26px}
+.big{font-size:24px}
 .calendar{margin-top:15px}
 .week, .days{
   display:grid;
@@ -48,20 +47,18 @@ h1{text-align:center;margin-bottom:10px}
 }
 .work{background:#fff;color:#000}
 .double{box-shadow:0 0 8px #fff}
-.fire{font-size:20px}
+.fire{font-size:18px}
 </style>
 </head>
 
 <body>
 <div class="app">
 
-<h1>CURRO</h1>
-
 <div class="stats">
-  <div class="card">DÍAS<br><span id="days" class="big">0</span></div>
-  <div class="card">HORAS<br><span id="hours" class="big">0</span></div>
-  <div class="card">€<br><span id="money" class="big">0.00</span></div>
+  <div class="card">DESCANSO EN<br><span id="rest" class="big">0</span></div>
   <div class="card">RACHA<br><span id="streak" class="fire">🔥0</span></div>
+  <div class="card">HORAS MES<br><span id="hours" class="big">0</span></div>
+  <div class="card">€ MES<br><span id="money" class="big">0.00</span></div>
 </div>
 
 <div class="calendar">
@@ -74,61 +71,78 @@ h1{text-align:center;margin-bottom:10px}
 </div>
 
 <script>
-// CONFIG
-const PRICE_HOUR = 10;
+const PRICE_MIN = 0.23;
+const MORNING_MIN = 420; // 7h
+const AFTERNOON_MIN = 390; // 14:00 a 20:30
+const REST_AFTER = 6; // descansas cada 6 días
 
-// DATOS METIDOS POR MI (EJEMPLO REAL)
-const workDays = {
-  17:{type:"tarde",double:false},
-  18:{type:"tarde",double:false},
-  19:{type:"mañana",double:false},
-  20:{type:"tarde",double:true},
-  21:{type:"tarde",double:false},
-};
+const now = new Date();
+const key = `${now.getFullYear()}-${now.getMonth()}`;
+let data = JSON.parse(localStorage.getItem(key)) || {};
 
-// HORAS
-function hoursByType(type){
-  if(type==="mañana") return 7;
-  return 8; // tarde por defecto
+const cal = document.getElementById("calendar");
+
+function calc(){
+  let totalMin=0;
+  let streak=0;
+  let maxStreak=0;
+  let lastDay=null;
+
+  const days = Object.keys(data).map(Number).sort((a,b)=>a-b);
+
+  days.forEach(d=>{
+    const day=data[d];
+    let min = day.shift==="mañana" ? MORNING_MIN : AFTERNOON_MIN;
+    if(day.festivo) min*=2;
+    totalMin+=min;
+
+    if(lastDay===d-1) streak++;
+    else streak=1;
+    maxStreak=Math.max(maxStreak,streak);
+    lastDay=d;
+  });
+
+  document.getElementById("hours").innerText=(totalMin/60).toFixed(2);
+  document.getElementById("money").innerText=(totalMin*PRICE_MIN).toFixed(2);
+  document.getElementById("streak").innerText="🔥"+streak;
+  document.getElementById("rest").innerText=Math.max(REST_AFTER-streak,0);
 }
 
-const calendar=document.getElementById("calendar");
-let totalDays=0, totalHours=0, totalMoney=0;
-
-Object.keys(workDays).forEach(d=>{
-  totalDays++;
-  const h=hoursByType(workDays[d].type);
-  totalHours+=h;
-  let money=h*PRICE_HOUR;
-  if(workDays[d].double) money*=2;
-  totalMoney+=money;
-});
-
-// RACHA
-const daysSorted=Object.keys(workDays).map(Number).sort((a,b)=>a-b);
-let streak=1;
-for(let i=daysSorted.length-1;i>0;i--){
-  if(daysSorted[i]-1===daysSorted[i-1]) streak++;
-  else break;
+function save(){
+  localStorage.setItem(key,JSON.stringify(data));
+  render();
 }
 
-// UI
-document.getElementById("days").innerText=totalDays;
-document.getElementById("hours").innerText=totalHours.toFixed(2);
-document.getElementById("money").innerText=totalMoney.toFixed(2);
-document.getElementById("streak").innerText="🔥"+streak;
+function render(){
+  cal.innerHTML="";
+  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  for(let i=1;i<=daysInMonth;i++){
+    const d=document.createElement("div");
+    d.className="day";
+    d.innerText=i;
 
-// CALENDARIO
-for(let i=1;i<=31;i++){
-  const d=document.createElement("div");
-  d.className="day";
-  d.innerText=i;
-  if(workDays[i]){
-    d.classList.add("work");
-    if(workDays[i].double) d.classList.add("double");
+    if(data[i]){
+      d.classList.add("work");
+      if(data[i].festivo) d.classList.add("double");
+    }
+
+    d.onclick=()=>{
+      const worked=confirm("¿Has trabajado?");
+      if(!worked){ delete data[i]; save(); return; }
+
+      const morning=confirm("¿Turno de mañana?");
+      const festivo=confirm("¿Es festivo?");
+
+      data[i]={shift: morning?"mañana":"tarde", festivo};
+      save();
+    };
+
+    cal.appendChild(d);
   }
-  calendar.appendChild(d);
+  calc();
 }
+
+render();
 </script>
 
 </body>
