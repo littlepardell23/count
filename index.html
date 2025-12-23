@@ -25,11 +25,12 @@ body{
 .app{
   width:100%;
   max-width:420px;
-  min-height:100vh;
+  min-height: calc(100vh - env(safe-area-inset-top,16px) - env(safe-area-inset-bottom,16px));
   display:flex;
   flex-direction:column;
-  justify-content:space-between;
-  padding:16px;
+  justify-content:center;
+  /* padding: top/right/bottom with safe-area insets for iPhone notch/home */
+  padding: calc(env(safe-area-inset-top,16px) + 16px) 16px calc(env(safe-area-inset-bottom,16px) + 16px);
 }
 
 /* CUADRADOS */
@@ -104,6 +105,7 @@ body{
   <div class="box">
     <div class="small">TOTAL VIDA €</div>
     <div class="big" id="lifeMoney">0.00</div>
+    <div class="small" id="lifeInfo">Has ganado 8.597 € → 622,75 horas.</div>
   </div>
   <div class="box">
     <div class="small">MES €</div>
@@ -167,7 +169,6 @@ const SHIFTS={
 
 let days=JSON.parse(localStorage.getItem("days"))||{};
 let months=JSON.parse(localStorage.getItem("months"))||{};
-let lifeMoney=parseFloat(localStorage.getItem("lifeMoney")||0);
 
 let selDay=null;
 const now=new Date();
@@ -175,6 +176,10 @@ const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
 const monthKey=`${y}-${m+1}`;
 
 function k(day){return `${monthKey}-${day}`}
+
+function fmtNumber(n){
+  return Number(n).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 
 function openDay(day){
   selDay=day;
@@ -192,10 +197,11 @@ function setDay(shift,festivo){
 function openHistory(){
   const box=document.getElementById("historyBox");
   box.innerHTML="";
-  Object.keys(months).forEach(m=>{
-    box.innerHTML+=`<div>${m} — ${months[m].toFixed(2)} €</div>`;
+  Object.keys(months).forEach(mk=>{
+    box.innerHTML+=`<div>${mk} — ${fmtNumber(months[mk])} €</div>`;
   });
-  box.innerHTML+=`<div style="margin-top:10px">TOTAL VIDA — ${lifeMoney.toFixed(2)} €</div>`;
+  const totalLife = Object.values(months).reduce((a,b)=>a+(parseFloat(b)||0),0);
+  box.innerHTML+=`<div style="margin-top:10px">TOTAL VIDA — ${fmtNumber(totalLife)} €</div>`;
   box.innerHTML+=`<button onclick="closeHistory()">Cerrar</button>`;
   document.getElementById("historyPopup").style.display="flex";
 }
@@ -208,18 +214,29 @@ function render(){
   cal.innerHTML="";
   const daysInMonth=new Date(y,m+1,0).getDate();
 
-  let totalMin=0, todayMin=0, morning=0, afternoon=0;
+  let totalMin=0, monthMin=0, morning=0, afternoon=0;
 
   Object.keys(days).forEach(kd=>{
     const conf=days[kd];
     let min=SHIFTS[conf.shift].e-SHIFTS[conf.shift].s;
     if(conf.festivo) min*=2;
     totalMin+=min;
-    conf.shift==="mañana"?morning++:afternoon++;
+    if(kd.startsWith(monthKey)){
+      monthMin+=min;
+      conf.shift==="mañana"?morning++:afternoon++;
+    }
   });
 
-  document.getElementById("monthMoney").innerText=(totalMin*RATE).toFixed(2);
-  document.getElementById("lifeMoney").innerText=(lifeMoney+totalMin*RATE).toFixed(2);
+  // actualizar UI
+  document.getElementById("monthMoney").innerText=fmtNumber(monthMin*RATE);
+  // guardar por mes
+  months[monthKey]=parseFloat((monthMin*RATE).toFixed(2));
+  localStorage.setItem("months",JSON.stringify(months));
+
+  const lifeMoneyTotal = totalMin*RATE;
+  document.getElementById("lifeMoney").innerText=fmtNumber(lifeMoneyTotal);
+  document.getElementById("lifeInfo").innerText = `Has ganado ${fmtNumber(lifeMoneyTotal)} € → ${(totalMin/60).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2})} horas.`;
+
   document.getElementById("morningDays").innerText=morning;
   document.getElementById("afternoonDays").innerText=afternoon;
   document.getElementById("streak").innerText="🔥"+Object.keys(days).length;
