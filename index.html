@@ -273,18 +273,27 @@ function render(){
 
   let totalMin=0, monthMin=0, morning=0, afternoon=0;
 
+  // totalMin: sumar solo los días explicitados en `days` (ignorando 'off')
   Object.keys(days).forEach(kd=>{
     const conf=days[kd];
-    if(conf.off) return; // skip holidays/off days
-    if(!conf.shift) return; // safety
+    if(conf.off) return;
+    if(!conf.shift) return;
     let min = SHIFTS[conf.shift].e - SHIFTS[conf.shift].s;
     if(conf.festivo) min *= 2;
     totalMin += min;
-    if(kd.startsWith(monthKey)){
-      monthMin += min;
-      conf.shift === "mañana" ? morning++ : afternoon++;
-    }
   });
+
+  // monthMin y contadores: recorrer cada día del mes y usar 'tarde' por defecto cuando no esté marcado
+  for(let i=1;i<=daysInMonth;i++){
+    const key = k(i);
+    const conf = days[key];
+    if(conf && conf.off) continue; // skip fiesta
+    const shift = (conf && conf.shift) ? conf.shift : 'tarde';
+    let min = SHIFTS[shift].e - SHIFTS[shift].s;
+    if(conf && conf.festivo) min *= 2;
+    monthMin += min;
+    shift === 'mañana' ? morning++ : afternoon++;
+  }
 
   // actualizar UI
   document.getElementById("monthMoney").innerText=fmtNumber(monthMin*RATE);
@@ -335,11 +344,15 @@ function updateTodayRemaining(){
   const todayKey = k(d);
   const todayConf = days[todayKey];
 
-  // si hay turno hoy y no es 'off', gestionarlo
-  if(todayConf && !todayConf.off && todayConf.shift){
-    const baseStart = SHIFTS[todayConf.shift].s;
-    const baseDuration = SHIFTS[todayConf.shift].e - SHIFTS[todayConf.shift].s;
-    const durationMin = todayConf.festivo ? baseDuration * 2 : baseDuration;
+  // si hoy está marcado como 'off', buscamos siguiente turno
+  if(todayConf && todayConf.off){
+    // fallthrough: buscar siguiente turno más abajo
+  } else {
+    // usar la configuración de hoy si existe y tiene shift, sino usar 'tarde' por defecto
+    const usedConf = (todayConf && todayConf.shift) ? todayConf : { shift: 'tarde', festivo: false };
+    const baseStart = SHIFTS[usedConf.shift].s;
+    const baseDuration = SHIFTS[usedConf.shift].e - SHIFTS[usedConf.shift].s;
+    const durationMin = usedConf.festivo ? baseDuration * 2 : baseDuration;
     const startMin = baseStart;
     const endMin = startMin + durationMin;
     const startSec = startMin * 60;
@@ -348,7 +361,7 @@ function updateTodayRemaining(){
     if(nowSec < startSec){
       const untilStart = startSec - nowSec;
       el.classList.remove('almost');
-      el.innerText = `Empieza en: ${formatSeconds(untilStart)}`;
+      el.innerText = `${formatSeconds(untilStart)}`; // compacto: sólo cadena
       return;
     }
 
@@ -356,7 +369,7 @@ function updateTodayRemaining(){
       const totalRemaining = endSec - nowSec;
       const remainingSec = Math.max(0, totalRemaining - 3600);
       if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
-      el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
+      el.innerText = `${formatSeconds(remainingSec)}`; // compacto: sólo cadena
       return;
     }
   }
@@ -371,13 +384,13 @@ function updateTodayRemaining(){
   const nextStart = new Date(next.date.getFullYear(), next.date.getMonth(), next.date.getDate(), startHour, startMin, 0);
   let secsUntil = Math.floor((nextStart.getTime() - now.getTime())/1000);
   if(secsUntil < 0) secsUntil = 0;
-  // formatear como Xd Yh Zm
+  // formatear compacto: e.g. "2d 05:30" o "05:30"
   const daysLeft = Math.floor(secsUntil/86400);
   const hoursLeft = Math.floor((secsUntil%86400)/3600);
   const minsLeft = Math.floor((secsUntil%3600)/60);
   el.classList.remove('almost');
-  if(daysLeft>0) el.innerText = `Siguiente turno en: ${daysLeft}d ${hoursLeft}h ${minsLeft}m`;
-  else el.innerText = `Siguiente turno en: ${hoursLeft}h ${minsLeft}m`;
+  if(daysLeft>0) el.innerText = `${daysLeft}d ${pad(hoursLeft)}:${pad(minsLeft)}`;
+  else el.innerText = `${pad(hoursLeft)}:${pad(minsLeft)}`;
 }
 
 updateTodayRemaining();
