@@ -17,15 +17,30 @@ body{
 }
 .app{width:100%;max-width:420px;padding:16px}
 
-.counter{margin:10px 0;text-align:center}
-.big{font-size:26px}
-.mid{font-size:18px}
-.small{font-size:13px;color:#aaa}
+/* CUADRADOS */
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.box{
+  border:1px solid #fff;
+  padding:12px;
+  text-align:center;
+}
+.big{font-size:22px}
+.mid{font-size:16px}
+.small{font-size:12px;color:#aaa}
 
 .line{border-top:1px solid #444;margin:12px 0}
 
-.calendar{margin-top:14px}
-.week,.days{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+/* CALENDARIO */
+.calendar{margin-top:10px}
+.week,.days{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  text-align:center;
+}
 .week{font-size:11px;opacity:.6}
 .day{
   border:1px solid #333;
@@ -36,6 +51,7 @@ body{
 .work{background:#fff;color:#000}
 .festivo{outline:2px solid #fff}
 
+/* POPUP */
 #popup{
   position:fixed;
   inset:0;
@@ -44,15 +60,14 @@ body{
   justify-content:center;
   align-items:center;
 }
-.popup-box{
+.popup{
   border:1px solid #fff;
   padding:20px;
-  text-align:center;
+  width:80%;
 }
-.popup-box button{
-  display:block;
+.popup button{
   width:100%;
-  margin:8px 0;
+  margin:6px 0;
   padding:10px;
   background:#000;
   color:#fff;
@@ -65,23 +80,44 @@ body{
 <body>
 <div class="app">
 
-<div class="counter small">HOY</div>
-<div class="counter big" id="todayTime">00:00</div>
-<div class="counter mid" id="todayMoney">0.00 €</div>
+<!-- 4 CUADRADOS -->
+<div class="grid">
+  <div class="box">
+    <div class="small">HOY</div>
+    <div class="big" id="todayTime">00:00</div>
+    <div class="mid" id="todayMoney">0.00 €</div>
+  </div>
 
+  <div class="box">
+    <div class="small">TOTAL €</div>
+    <div class="big" id="totalMoney">0.00</div>
+  </div>
+
+  <div class="box">
+    <div class="small">TOTAL HORAS</div>
+    <div class="big" id="totalHours">0.00</div>
+  </div>
+
+  <div class="box">
+    <div class="small">RACHA</div>
+    <div class="big" id="streak">🔥0</div>
+  </div>
+</div>
+
+<!-- CONTADORES PEQUEÑOS -->
 <div class="line"></div>
+<div class="grid">
+  <div class="box">
+    <div class="small">MAÑANA</div>
+    <div class="mid" id="morningDays">0</div>
+  </div>
+  <div class="box">
+    <div class="small">TARDE</div>
+    <div class="mid" id="afternoonDays">0</div>
+  </div>
+</div>
 
-<div class="counter mid">TOTAL HORAS</div>
-<div class="counter big" id="totalHours">0.00</div>
-
-<div class="counter mid">TOTAL €</div>
-<div class="counter big" id="totalMoney">0.00</div>
-
-<div class="line"></div>
-
-<div class="counter small">RACHA</div>
-<div class="counter mid" id="streak">🔥0</div>
-
+<!-- CALENDARIO -->
 <div class="calendar">
   <div class="week">
     <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
@@ -93,29 +129,29 @@ body{
 
 <!-- POPUP -->
 <div id="popup">
-  <div class="popup-box">
+  <div class="popup">
     <button onclick="setDay('mañana',false)">Mañana</button>
     <button onclick="setDay('tarde',false)">Tarde</button>
     <button onclick="setDay('tarde',true)">Festivo (x2)</button>
-    <button onclick="setDay('mañana',true)">Mañana Festivo (x2)</button>
+    <button onclick="setDay('mañana',true)">Mañana festivo (x2)</button>
     <button onclick="closePopup()">Cancelar</button>
   </div>
 </div>
 
 <script>
-const RATE = 0.23;
-const SHIFTS = {
+const RATE=0.23;
+const SHIFTS={
   mañana:{start:7*60,end:14*60},
   tarde:{start:14*60,end:20*60+30}
 };
 
-let data = JSON.parse(localStorage.getItem("days")) || {};
+let data=JSON.parse(localStorage.getItem("days"))||{};
 let selectedDay=null;
 
-const today=new Date();
-const y=today.getFullYear(), m=today.getMonth(), d=today.getDate();
+const now=new Date();
+const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
 
-function key(day){return `${y}-${m+1}-${day}`}
+function k(day){return `${y}-${m+1}-${day}`}
 
 function openPopup(day){
   selectedDay=day;
@@ -125,7 +161,7 @@ function closePopup(){
   document.getElementById("popup").style.display="none";
 }
 function setDay(shift,festivo){
-  data[key(selectedDay)]={shift,festivo};
+  data[k(selectedDay)]={shift,festivo};
   localStorage.setItem("days",JSON.stringify(data));
   closePopup();
   render();
@@ -140,11 +176,9 @@ function render(){
     const el=document.createElement("div");
     el.className="day";
     el.textContent=i;
-    const k=key(i);
-
-    if(data[k]){
+    if(data[k(i)]){
       el.classList.add("work");
-      if(data[k].festivo) el.classList.add("festivo");
+      if(data[k(i)].festivo) el.classList.add("festivo");
     }
     el.onclick=()=>openPopup(i);
     cal.appendChild(el);
@@ -153,36 +187,40 @@ function render(){
 }
 
 function calc(){
-  let totalMin=0;
-  let todayMin=0;
+  let totalMin=0, todayMin=0;
+  let morning=0, afternoon=0;
 
-  const nowMin=today.getHours()*60+today.getMinutes();
+  const nowMin=now.getHours()*60+now.getMinutes();
 
-  Object.keys(data).forEach(k=>{
-    const [yy,mm,dd]=k.split("-").map(Number);
-    const conf=data[k];
+  Object.keys(data).forEach(key=>{
+    const conf=data[key];
     const shift=SHIFTS[conf.shift];
     let min=shift.end-shift.start;
 
-    if(dd===d){
+    const day=parseInt(key.split("-")[2]);
+    if(day===d){
       todayMin=Math.max(0,Math.min(nowMin,shift.end)-shift.start);
       min=todayMin;
     }
     if(conf.festivo) min*=2;
     totalMin+=min;
+
+    conf.shift==="mañana" ? morning++ : afternoon++;
   });
 
   document.getElementById("todayTime").textContent=format(todayMin);
   document.getElementById("todayMoney").textContent=(todayMin*RATE).toFixed(2)+" €";
   document.getElementById("totalHours").textContent=(totalMin/60).toFixed(2);
   document.getElementById("totalMoney").textContent=(totalMin*RATE).toFixed(2);
+  document.getElementById("morningDays").textContent=morning;
+  document.getElementById("afternoonDays").textContent=afternoon;
   document.getElementById("streak").textContent="🔥"+calcStreak();
 }
 
 function calcStreak(){
   let c=0;
   for(let i=d;i>0;i--){
-    if(data[key(i)]) c++;
+    if(data[k(i)]) c++;
     else break;
   }
   return c;
