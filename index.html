@@ -107,6 +107,7 @@ body{
     <div class="small">HOY</div>
     <div class="big" id="todayTime">00:00</div>
     <div class="mid" id="todayMoney">0.00 €</div>
+    <div class="small" id="todayRemaining">Te queda de curro real: 00:00:00</div>
   </div>
   <div class="box">
     <div class="small">TOTAL VIDA €</div>
@@ -137,7 +138,6 @@ body{
 </div>
 
 <div style="display:flex;gap:8px;margin-top:10px;justify-content:center;">
-  <div class="hist-btn" onclick="openSettings()">AJUSTES</div>
   <div id="undoBtn" class="hist-btn" style="display:none;" onclick="undoRemove()">DESHACER</div>
 </div>
 
@@ -302,6 +302,46 @@ function render(){
 }
 
 render();
+
+// Countdown for 'curro real' today (resta 1h por día para cambio/merienda)
+function pad(n){return n.toString().padStart(2,'0');}
+function formatSeconds(sec){
+  if(sec<=0) return '00:00:00';
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  const s = Math.floor(sec%60);
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function updateTodayRemaining(){
+  const now = new Date();
+  const nowSec = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds();
+  const key = k(d);
+  const el = document.getElementById('todayRemaining');
+  if(!days[key]){
+    el.innerText = 'Te queda de curro real: 00:00:00';
+    return;
+  }
+  const conf = days[key];
+  const startMin = SHIFTS[conf.shift].s;
+  const endMin = SHIFTS[conf.shift].e;
+  const startSec = startMin*60;
+  const endSec = endMin*60;
+  // restar 1h (3600s) del tiempo efectivo de trabajo
+  let remainingSec = 0;
+  if(nowSec < startSec){
+    // antes de empezar: full shift minus 1h
+    remainingSec = Math.max(0, (endSec - startSec) - 3600);
+  } else if(nowSec >= startSec && nowSec < endSec){
+    remainingSec = Math.max(0, (endSec - nowSec) - 3600);
+  } else {
+    remainingSec = 0;
+  }
+  el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
+}
+
+updateTodayRemaining();
+setInterval(updateTodayRemaining, 1000);
 
 // SETTINGS popup handlers
 function openSettings(){
