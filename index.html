@@ -3,17 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contador Curro</title>
+<title>Curro</title>
 
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <style>
 @font-face{
   font-family:Digital;
-  src:url('https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf');
+  src:url("https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf");
 }
 
 body{
@@ -21,52 +20,46 @@ body{
   background:#000;
   color:#fff;
   font-family:Arial,sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:20px;
+  text-align:center;
+  padding:15px;
 }
 
 .digital{font-family:Digital;}
-.big{font-size:2.8em}
-.medium{font-size:1.8em}
-.small{font-size:1.2em}
-.tiny{font-size:1em;color:#aaa}
+.big{font-size:2.2em}
+.medium{font-size:1.5em}
+.small{font-size:1.1em}
+.tiny{font-size:.9em;color:#aaa}
 
-.clock{
-  font-size:3.6em;
-  letter-spacing:3px;
-  margin-bottom:25px;
-}
+.line{width:80%;border-top:1px solid #fff;margin:14px auto}
 
-.counter{text-align:center;margin:10px 0}
-.line{width:80%;border-top:1px solid #fff;margin:15px 0}
+.clock{font-size:3em;margin-bottom:15px}
 
-/* CALENDARIO */
 #calendar{
   display:grid;
   grid-template-columns:repeat(7,42px);
   gap:6px;
-  margin-top:20px;
+  justify-content:center;
 }
 
-.week{
-  font-size:10px;
-  opacity:.6;
-  text-align:center;
-}
+.week{font-size:10px;opacity:.6}
 
 .day{
-  width:42px;
-  height:42px;
-  line-height:42px;
-  text-align:center;
   border:1px solid #fff;
   border-radius:6px;
+  padding:4px 0;
+  font-size:11px;
 }
 
 .red{background:#400}
-.today{border:2px solid #fff}
+.festive{border:2px solid gold}
+.today{outline:2px solid #fff}
+
+select{
+  background:#000;
+  color:#fff;
+  border:1px solid #333;
+  font-size:9px;
+}
 </style>
 </head>
 
@@ -74,155 +67,134 @@ body{
 
 <div id="clock" class="digital clock">00:00:00</div>
 
-<div class="counter small">
-  <div>HOY</div>
-  <div id="timeToday" class="digital">00:00</div>
-</div>
-
-<div class="counter medium">
-  <div>HOY €</div>
-  <div id="moneyToday" class="digital">0,00</div>
-</div>
+<div class="small">HOY</div>
+<div id="todayTime" class="digital medium">00:00</div>
+<div id="todayMoney" class="digital small">0,00 €</div>
 
 <div class="line"></div>
 
-<div class="counter big">
-  <div>TOTAL HORAS</div>
-  <div id="totalTime" class="digital big">00:00</div>
-</div>
-
-<div class="counter big">
-  <div>TOTAL €</div>
-  <div id="totalMoney" class="digital big">0,00</div>
-</div>
+<div class="small">TOTAL</div>
+<div id="totalTime" class="digital big">00:00</div>
+<div id="totalMoney" class="digital big">0,00 €</div>
 
 <div class="line"></div>
 
-<div class="counter small">
-  <div>MEDIA / DÍA</div>
-  <div id="avgDay" class="digital">0,00</div>
-</div>
+<div class="tiny">🔥 RACHA</div>
+<div id="streak" class="digital medium">0</div>
+<div class="tiny">faltan <span id="rest">5</span> días para descansar</div>
 
-<div class="counter tiny">
-  <div>DÍAS TRABAJADOS</div>
-  <div id="daysWorked" class="digital">0</div>
-</div>
+<div class="line"></div>
 
 <div id="calendar"></div>
 
 <script>
-/* CONFIG */
-const START="14:00";
-const END="20:30";
 const RATE=14;
+const REST_AFTER=5;
 
-/* STORAGE */
-let data=JSON.parse(localStorage.getItem("workData"))||{};
+const SHIFTS={
+  mañana:{start:420,end:840},
+  tarde:{start:840,end:1230}
+};
 
-/* UTILS */
-const parse=t=>{const[a,b]=t.split(":").map(Number);return a*60+b}
-const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`
-const key=d=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
+let data=JSON.parse(localStorage.getItem("curro"))||{};
 
-/* PRE-CARGA → 4 DÍAS TRABAJADOS */
-(function preload(){
-  if(Object.keys(data).length) return;
-  const base=new Date();
-  for(let i=1;i<=4;i++){
-    const d=new Date(base);
-    d.setDate(base.getDate()-i);
-    data[key(d)]={off:false,minutes:390}; // 6h30
-  }
-  localStorage.setItem("workData",JSON.stringify(data));
-})();
+const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const key=d=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
 
-/* CLOCK */
 function clock(){
   const n=new Date();
   document.getElementById("clock").textContent=
   `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}`;
 }
 
-/* CALENDAR */
 function calendar(){
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth(),t=now.getDate();
-  const first=new Date(y,m,1).getDay();
   const days=new Date(y,m+1,0).getDate();
   const week=["L","M","X","J","V","S","D"];
 
   week.forEach(w=>{
-    const el=document.createElement("div");
-    el.className="week";
-    el.textContent=w;
-    cal.appendChild(el);
+    const e=document.createElement("div");
+    e.className="week";e.textContent=w;
+    cal.appendChild(e);
   });
-
-  for(let i=0;i<(first===0?6:first-1);i++)
-    cal.appendChild(document.createElement("div"));
 
   for(let d=1;d<=days;d++){
     const k=`${y}-${m+1}-${d}`;
-    if(!data[k])data[k]={off:false,minutes:0};
+    if(!data[k])data[k]={off:false,shift:"tarde",festive:false,minutes:0};
 
     const el=document.createElement("div");
     el.className="day";
     el.textContent=d;
     if(data[k].off)el.classList.add("red");
+    if(data[k].festive)el.classList.add("festive");
     if(d===t)el.classList.add("today");
 
     el.onclick=()=>{
       data[k].off=!data[k].off;
-      localStorage.setItem("workData",JSON.stringify(data));
-      calendar();update();
+      save();calendar();calc();
     };
+
+    el.oncontextmenu=e=>{
+      e.preventDefault();
+      data[k].festive=!data[k].festive;
+      save();calendar();calc();
+    };
+
     cal.appendChild(el);
   }
 }
 
-/* UPDATE */
-function update(){
+function calc(){
   const now=new Date();
-  const k=key(now);
-  if(!data[k])data[k]={off:false,minutes:0};
+  const todayKey=key(now);
+  let totalMin=0,totalMoney=0,streak=0;
 
-  let todayMin=0;
-  if(!data[k].off){
-    const s=parse(START),e=parse(END);
-    let cur=now.getHours()*60+now.getMinutes();
-    if(cur>e)cur=e;
-    if(cur>s)todayMin=cur-s;
-  }
+  Object.keys(data).sort().forEach(k=>{
+    const d=data[k];
+    if(d.off)return;
 
-  document.getElementById("timeToday").textContent=fmt(todayMin);
-  document.getElementById("moneyToday").textContent=((todayMin/60)*RATE).toFixed(2);
-
-  if(todayMin>data[k].minutes){
-    data[k].minutes=todayMin;
-    localStorage.setItem("workData",JSON.stringify(data));
-  }
-
-  let totalMin=0,days=0;
-  Object.values(data).forEach(d=>{
-    if(!d.off && d.minutes>0){
-      totalMin+=d.minutes;
-      days++;
+    let mins=d.minutes;
+    if(k===todayKey){
+      const s=SHIFTS[d.shift];
+      let cur=now.getHours()*60+now.getMinutes();
+      if(cur>s.end)cur=s.end;
+      if(cur>s.start)mins=cur-s.start;
+      d.minutes=mins;
     }
+
+    const mult=d.festive?2:1;
+    totalMin+=mins;
+    totalMoney+=(mins/60)*RATE*mult;
   });
 
+  let keys=Object.keys(data).sort().reverse();
+  for(let k of keys){
+    if(!data[k].off && data[k].minutes>0)streak++;
+    else break;
+  }
+
+  document.getElementById("todayTime").textContent=fmt(data[todayKey]?.minutes||0);
+  document.getElementById("todayMoney").textContent=((data[todayKey]?.minutes||0)/60*RATE).toFixed(2)+" €";
   document.getElementById("totalTime").textContent=fmt(totalMin);
-  document.getElementById("totalMoney").textContent=((totalMin/60)*RATE).toFixed(2);
-  document.getElementById("avgDay").textContent=(days?((totalMin/60)*RATE/days):0).toFixed(2);
-  document.getElementById("daysWorked").textContent=days;
+  document.getElementById("totalMoney").textContent=totalMoney.toFixed(2)+" €";
+  document.getElementById("streak").textContent="🔥 "+streak;
+  document.getElementById("rest").textContent=Math.max(0,REST_AFTER-streak);
+
+  save();
+}
+
+function save(){
+  localStorage.setItem("curro",JSON.stringify(data));
 }
 
 calendar();
 clock();
-update();
+calc();
 setInterval(clock,1000);
-setInterval(update,1000);
+setInterval(calc,1000);
 </script>
 
 </body>
