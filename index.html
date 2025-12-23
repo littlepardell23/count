@@ -161,6 +161,7 @@ body{
     <button onclick="setDay('tarde',false)">Tarde</button>
     <button onclick="setDay('tarde',true)">Festivo (x2)</button>
     <button onclick="setDay('mañana',true)">Mañana festivo (x2)</button>
+    <button onclick="setOffDay()">FIESTA</button>
     <button onclick="removeDay()">Quitar día</button>
     <button onclick="closeDay()">Cancelar</button>
   </div>
@@ -192,9 +193,9 @@ let days=JSON.parse(localStorage.getItem("days"))||{};
 let months=JSON.parse(localStorage.getItem("months"))||{};
 
 // Valores iniciales solicitados por el usuario
-const INITIAL_LIFE_MONEY = 8597; // euros
-const INITIAL_LIFE_HOURS = 622.75; // horas
-const INITIAL_LIFE_MIN = Math.round(INITIAL_LIFE_HOURS * 60);
+let INITIAL_LIFE_MONEY = 8597; // euros
+let INITIAL_LIFE_HOURS = 622.75; // horas
+let INITIAL_LIFE_MIN = Math.round(INITIAL_LIFE_HOURS * 60);
 
 let selDay=null;
 let lastRemoved=null;
@@ -216,7 +217,16 @@ function closeDay(){
   document.getElementById("dayPopup").style.display="none";
 }
 function setDay(shift,festivo){
+  // set a working shift; ensure 'off' flag removed
   days[k(selDay)]={shift,festivo};
+  if(days[k(selDay)].off) delete days[k(selDay)].off;
+  localStorage.setItem("days",JSON.stringify(days));
+  closeDay(); render();
+}
+
+function setOffDay(){
+  // mark selected day as off/fiesta so it doesn't count
+  days[k(selDay)]={off:true};
   localStorage.setItem("days",JSON.stringify(days));
   closeDay(); render();
 }
@@ -243,14 +253,15 @@ function undoRemove(){
   render();
 }
 
-function removeDay(){
-  if(selDay==null) return closeDay();
-  const key = k(selDay);
-  if(days[key]){
-    delete days[key];
-    localStorage.setItem("days",JSON.stringify(days));
+// helper: busca el siguiente turno en los próximos 60 días
+function findNextShift(fromDate){
+  for(let i=0;i<60;i++){
+    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate()+i);
+    const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+    const conf = days[key];
+    if(conf && !conf.off && conf.shift) return {date:d, conf};
   }
-  closeDay(); render();
+  return null;
 }
 
 /* history UI removed */
@@ -264,12 +275,14 @@ function render(){
 
   Object.keys(days).forEach(kd=>{
     const conf=days[kd];
-    let min=SHIFTS[conf.shift].e-SHIFTS[conf.shift].s;
-    if(conf.festivo) min*=2;
-    totalMin+=min;
+    if(conf.off) return; // skip holidays/off days
+    if(!conf.shift) return; // safety
+    let min = SHIFTS[conf.shift].e - SHIFTS[conf.shift].s;
+    if(conf.festivo) min *= 2;
+    totalMin += min;
     if(kd.startsWith(monthKey)){
-      monthMin+=min;
-      conf.shift==="mañana"?morning++:afternoon++;
+      monthMin += min;
+      conf.shift === "mañana" ? morning++ : afternoon++;
     }
   });
 
@@ -293,9 +306,10 @@ function render(){
     const el=document.createElement("div");
     el.className="day";
     el.textContent=i;
-    if(days[k(i)]){
-      el.classList.add("work");
-      if(days[k(i)].festivo) el.classList.add("festivo");
+    const conf = days[k(i)];
+    if(conf){
+      if(conf.off){ el.classList.add('festivo'); }
+      else { el.classList.add('work'); if(conf.festivo) el.classList.add('festivo'); }
     }
     el.onclick=()=>openDay(i);
     cal.appendChild(el);
@@ -317,42 +331,53 @@ function formatSeconds(sec){
 function updateTodayRemaining(){
   const now = new Date();
   const nowSec = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds();
-  const key = k(d);
   const el = document.getElementById('todayRemaining');
-  if(!days[key]){
-    el.innerText = 'Te queda de curro real: 00:00:00';
-    return;
-  }
-  const conf = days[key];
-  const baseStart = SHIFTS[conf.shift].s;
-  const baseDuration = SHIFTS[conf.shift].e - SHIFTS[conf.shift].s;
-  const durationMin = conf.festivo ? baseDuration * 2 : baseDuration;
-  const startMin = baseStart;
-  const endMin = startMin + durationMin;
-  const startSec = startMin * 60;
-  const endSec = endMin * 60;
+  const todayKey = k(d);
+  const todayConf = days[todayKey];
 
-  if(nowSec < startSec){
-    // Mostrar cuenta atrás hasta el inicio del turno
-    const untilStart = startSec - nowSec;
-    el.classList.remove('almost');
-    el.innerText = `Empieza en: ${formatSeconds(untilStart)}`;
-    return;
-  }
+  // si hay turno hoy y no es 'off', gestionarlo
+  if(todayConf && !todayConf.off && todayConf.shift){
+    const baseStart = SHIFTS[todayConf.shift].s;
+    const baseDuration = SHIFTS[todayConf.shift].e - SHIFTS[todayConf.shift].s;
+    const durationMin = todayConf.festivo ? baseDuration * 2 : baseDuration;
+    const startMin = baseStart;
+    const endMin = startMin + durationMin;
+    const startSec = startMin * 60;
+    const endSec = endMin * 60;
 
-  if(nowSec >= startSec && nowSec < endSec){
-    // Durante el turno: tiempo restante real = tiempo hasta fin - 1h (3600s)
-    const totalRemaining = endSec - nowSec;
-    const remainingSec = Math.max(0, totalRemaining - 3600);
-    // aplicar clase verde si queda ≤ 1h real
-    if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
-    el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
-    return;
+    if(nowSec < startSec){
+      const untilStart = startSec - nowSec;
+      el.classList.remove('almost');
+      el.innerText = `Empieza en: ${formatSeconds(untilStart)}`;
+      return;
+    }
+
+    if(nowSec >= startSec && nowSec < endSec){
+      const totalRemaining = endSec - nowSec;
+      const remainingSec = Math.max(0, totalRemaining - 3600);
+      if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
+      el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
+      return;
+    }
   }
 
-  // Tras el turno
+  // si no hay turno hoy (o es off / ya pasó), buscar siguiente turno
+  const next = findNextShift(new Date());
+  if(!next){ el.classList.remove('almost'); el.innerText = 'No hay turnos programados'; return; }
+  // calcular segundos hasta el inicio del siguiente turno
+  const startMinNext = SHIFTS[next.conf.shift].s;
+  const startHour = Math.floor(startMinNext/60);
+  const startMin = startMinNext%60;
+  const nextStart = new Date(next.date.getFullYear(), next.date.getMonth(), next.date.getDate(), startHour, startMin, 0);
+  let secsUntil = Math.floor((nextStart.getTime() - now.getTime())/1000);
+  if(secsUntil < 0) secsUntil = 0;
+  // formatear como Xd Yh Zm
+  const daysLeft = Math.floor(secsUntil/86400);
+  const hoursLeft = Math.floor((secsUntil%86400)/3600);
+  const minsLeft = Math.floor((secsUntil%3600)/60);
   el.classList.remove('almost');
-  el.innerText = 'Te queda de curro real: 00:00:00';
+  if(daysLeft>0) el.innerText = `Siguiente turno en: ${daysLeft}d ${hoursLeft}h ${minsLeft}m`;
+  else el.innerText = `Siguiente turno en: ${hoursLeft}h ${minsLeft}m`;
 }
 
 updateTodayRemaining();
