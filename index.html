@@ -151,6 +151,7 @@ body{
     <button onclick="setDay('tarde',false)">Tarde</button>
     <button onclick="setDay('tarde',true)">Festivo (x2)</button>
     <button onclick="setDay('mañana',true)">Mañana festivo (x2)</button>
+    <button onclick="removeDay()">Quitar día</button>
     <button onclick="closeDay()">Cancelar</button>
   </div>
 </div>
@@ -169,6 +170,11 @@ const SHIFTS={
 
 let days=JSON.parse(localStorage.getItem("days"))||{};
 let months=JSON.parse(localStorage.getItem("months"))||{};
+
+// Valores iniciales solicitados por el usuario
+const INITIAL_LIFE_MONEY = 8597; // euros
+const INITIAL_LIFE_HOURS = 622.75; // horas
+const INITIAL_LIFE_MIN = Math.round(INITIAL_LIFE_HOURS * 60);
 
 let selDay=null;
 const now=new Date();
@@ -194,13 +200,23 @@ function setDay(shift,festivo){
   closeDay(); render();
 }
 
+function removeDay(){
+  if(selDay==null) return closeDay();
+  const key = k(selDay);
+  if(days[key]){
+    delete days[key];
+    localStorage.setItem("days",JSON.stringify(days));
+  }
+  closeDay(); render();
+}
+
 function openHistory(){
   const box=document.getElementById("historyBox");
   box.innerHTML="";
   Object.keys(months).forEach(mk=>{
     box.innerHTML+=`<div>${mk} — ${fmtNumber(months[mk])} €</div>`;
   });
-  const totalLife = Object.values(months).reduce((a,b)=>a+(parseFloat(b)||0),0);
+  const totalLife = Object.values(months).reduce((a,b)=>a+(parseFloat(b)||0),0) + INITIAL_LIFE_MONEY;
   box.innerHTML+=`<div style="margin-top:10px">TOTAL VIDA — ${fmtNumber(totalLife)} €</div>`;
   box.innerHTML+=`<button onclick="closeHistory()">Cerrar</button>`;
   document.getElementById("historyPopup").style.display="flex";
@@ -233,10 +249,11 @@ function render(){
   months[monthKey]=parseFloat((monthMin*RATE).toFixed(2));
   localStorage.setItem("months",JSON.stringify(months));
 
-  const lifeMoneyTotal = totalMin*RATE;
-  document.getElementById("lifeMoney").innerText=fmtNumber(lifeMoneyTotal);
-  // Actualizar lifeInfo dinámicamente con formato español
-  document.getElementById("lifeInfo").innerText = `${fmtNumber(lifeMoneyTotal)} € → ${(totalMin/60).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+  // Incluir valores iniciales en el total de vida
+  const lifeMoneyTotal = INITIAL_LIFE_MONEY + (totalMin * RATE);
+  document.getElementById("lifeMoney").innerText = fmtNumber(lifeMoneyTotal);
+  const lifeHoursTotal = INITIAL_LIFE_HOURS + (totalMin / 60);
+  document.getElementById("lifeInfo").innerText = `${fmtNumber(lifeMoneyTotal)} € → ${lifeHoursTotal.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2})} h`;
 
   document.getElementById("morningDays").innerText=morning;
   document.getElementById("afternoonDays").innerText=afternoon;
