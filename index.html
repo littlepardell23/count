@@ -11,6 +11,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <style>
+@font-face{
+  font-family:Digital;
+  src:url('https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf');
+}
+
 body{
   margin:0;
   background:#000;
@@ -22,14 +27,14 @@ body{
   padding:20px;
 }
 
-.digital{font-family:'Courier New',monospace;}
-.big{font-size:2.6em}
+.digital{font-family:Digital;}
+.big{font-size:2.8em}
 .medium{font-size:1.8em}
 .small{font-size:1.2em}
 .tiny{font-size:1em;color:#aaa}
 
 .clock{
-  font-size:3.5em;
+  font-size:3.6em;
   letter-spacing:3px;
   margin-bottom:25px;
 }
@@ -37,17 +42,24 @@ body{
 .counter{text-align:center;margin:10px 0}
 .line{width:80%;border-top:1px solid #fff;margin:15px 0}
 
+/* CALENDARIO */
 #calendar{
   display:grid;
-  grid-template-columns:repeat(7,40px);
+  grid-template-columns:repeat(7,42px);
   gap:6px;
   margin-top:20px;
 }
 
+.week{
+  font-size:10px;
+  opacity:.6;
+  text-align:center;
+}
+
 .day{
-  width:40px;
-  height:40px;
-  line-height:40px;
+  width:42px;
+  height:42px;
+  line-height:42px;
   text-align:center;
   border:1px solid #fff;
   border-radius:6px;
@@ -92,8 +104,8 @@ body{
 </div>
 
 <div class="counter tiny">
-  <div>DÍAS SEGUIDOS</div>
-  <div id="streak" class="digital">0</div>
+  <div>DÍAS TRABAJADOS</div>
+  <div id="daysWorked" class="digital">0</div>
 </div>
 
 <div id="calendar"></div>
@@ -112,11 +124,23 @@ const parse=t=>{const[a,b]=t.split(":").map(Number);return a*60+b}
 const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`
 const key=d=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
 
+/* PRE-CARGA → 4 DÍAS TRABAJADOS */
+(function preload(){
+  if(Object.keys(data).length) return;
+  const base=new Date();
+  for(let i=1;i<=4;i++){
+    const d=new Date(base);
+    d.setDate(base.getDate()-i);
+    data[key(d)]={off:false,minutes:390}; // 6h30
+  }
+  localStorage.setItem("workData",JSON.stringify(data));
+})();
+
 /* CLOCK */
 function clock(){
   const n=new Date();
   document.getElementById("clock").textContent=
-  `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}`
+  `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}`;
 }
 
 /* CALENDAR */
@@ -127,8 +151,17 @@ function calendar(){
   const y=now.getFullYear(),m=now.getMonth(),t=now.getDate();
   const first=new Date(y,m,1).getDay();
   const days=new Date(y,m+1,0).getDate();
+  const week=["L","M","X","J","V","S","D"];
 
-  for(let i=0;i<first;i++)cal.appendChild(document.createElement("div"));
+  week.forEach(w=>{
+    const el=document.createElement("div");
+    el.className="week";
+    el.textContent=w;
+    cal.appendChild(el);
+  });
+
+  for(let i=0;i<(first===0?6:first-1);i++)
+    cal.appendChild(document.createElement("div"));
 
   for(let d=1;d<=days;d++){
     const k=`${y}-${m+1}-${d}`;
@@ -157,8 +190,7 @@ function update(){
 
   let todayMin=0;
   if(!data[k].off){
-    const s=parse(START);
-    const e=parse(END);
+    const s=parse(START),e=parse(END);
     let cur=now.getHours()*60+now.getMinutes();
     if(cur>e)cur=e;
     if(cur>s)todayMin=cur-s;
@@ -167,8 +199,7 @@ function update(){
   document.getElementById("timeToday").textContent=fmt(todayMin);
   document.getElementById("moneyToday").textContent=((todayMin/60)*RATE).toFixed(2);
 
-  // guardar solo cuando acaba el día
-  if(todayMin>0 && data[k].minutes!==todayMin){
+  if(todayMin>data[k].minutes){
     data[k].minutes=todayMin;
     localStorage.setItem("workData",JSON.stringify(data));
   }
@@ -184,16 +215,7 @@ function update(){
   document.getElementById("totalTime").textContent=fmt(totalMin);
   document.getElementById("totalMoney").textContent=((totalMin/60)*RATE).toFixed(2);
   document.getElementById("avgDay").textContent=(days?((totalMin/60)*RATE/days):0).toFixed(2);
-
-  // racha
-  const keys=Object.keys(data).sort();
-  let streak=0;
-  for(let i=keys.length-1;i>=0;i--){
-    const d=data[keys[i]];
-    if(!d.off && d.minutes>0)streak++;
-    else break;
-  }
-  document.getElementById("streak").textContent=streak;
+  document.getElementById("daysWorked").textContent=days;
 }
 
 calendar();
