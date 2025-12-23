@@ -309,7 +309,41 @@ function render(){
 
   document.getElementById("morningDays").innerText=morning;
   document.getElementById("afternoonDays").innerText=afternoon;
-  document.getElementById("streak").innerText="🔥"+Object.keys(days).length;
+  // calcular racha: contar días consecutivos hacia atrás desde hoy
+  // - días sin marcar cuentan como trabajados
+  // - días marcados con `off` rompen la racha
+  function computeStreak(){
+    let streak = 0;
+    const todayDate = new Date();
+    for(let i=0;i<365;i++){
+      const d = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate()-i);
+      const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+      const conf = days[key];
+
+      if(conf && conf.off){
+        // fiesta explícita: rompe la racha
+        break;
+      }
+
+      if(conf && (conf.shift || conf.festivo)){
+        // día marcado (mañana/tarde) o festivo doble: cuenta como trabajado
+        streak++;
+        continue;
+      }
+
+      if(!conf){
+        // día no marcado: lo tratamos como trabajado (suma a la racha)
+        streak++;
+        continue;
+      }
+
+      // cualquier otra configuración explícita inesperada rompe la racha
+      break;
+    }
+    return streak;
+  }
+
+  document.getElementById("streak").innerText = "🔥" + computeStreak();
 
   for(let i=1;i<=daysInMonth;i++){
     const el=document.createElement("div");
