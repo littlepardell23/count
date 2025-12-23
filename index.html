@@ -15,51 +15,72 @@ body{
   display:flex;
   justify-content:center;
 }
-.app{
-  max-width:420px;
-  width:100%;
-  padding:16px;
-}
-.stats{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-.card{
-  border:1px solid #fff;
-  padding:10px;
-  text-align:center;
-  font-size:14px;
-}
-.big{font-size:24px}
-.calendar{margin-top:15px}
-.week, .days{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  text-align:center;
-}
-.week{opacity:.6;font-size:12px}
+.app{width:100%;max-width:420px;padding:16px}
+
+.counter{margin:10px 0;text-align:center}
+.big{font-size:26px}
+.mid{font-size:18px}
+.small{font-size:13px;color:#aaa}
+
+.line{border-top:1px solid #444;margin:12px 0}
+
+.calendar{margin-top:14px}
+.week,.days{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}
+.week{font-size:11px;opacity:.6}
 .day{
-  border:1px solid #555;
+  border:1px solid #333;
   padding:10px 0;
-  margin:4px;
-  font-size:13px;
+  margin:3px;
+  border-radius:6px;
 }
 .work{background:#fff;color:#000}
-.double{box-shadow:0 0 8px #fff}
-.fire{font-size:18px}
+.festivo{outline:2px solid #fff}
+
+#popup{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.9);
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+.popup-box{
+  border:1px solid #fff;
+  padding:20px;
+  text-align:center;
+}
+.popup-box button{
+  display:block;
+  width:100%;
+  margin:8px 0;
+  padding:10px;
+  background:#000;
+  color:#fff;
+  border:1px solid #fff;
+  font-family:inherit;
+}
 </style>
 </head>
 
 <body>
 <div class="app">
 
-<div class="stats">
-  <div class="card">DESCANSO EN<br><span id="rest" class="big">0</span></div>
-  <div class="card">RACHA<br><span id="streak" class="fire">🔥0</span></div>
-  <div class="card">HORAS MES<br><span id="hours" class="big">0</span></div>
-  <div class="card">€ MES<br><span id="money" class="big">0.00</span></div>
-</div>
+<div class="counter small">HOY</div>
+<div class="counter big" id="todayTime">00:00</div>
+<div class="counter mid" id="todayMoney">0.00 €</div>
+
+<div class="line"></div>
+
+<div class="counter mid">TOTAL HORAS</div>
+<div class="counter big" id="totalHours">0.00</div>
+
+<div class="counter mid">TOTAL €</div>
+<div class="counter big" id="totalMoney">0.00</div>
+
+<div class="line"></div>
+
+<div class="counter small">RACHA</div>
+<div class="counter mid" id="streak">🔥0</div>
 
 <div class="calendar">
   <div class="week">
@@ -70,80 +91,111 @@ body{
 
 </div>
 
+<!-- POPUP -->
+<div id="popup">
+  <div class="popup-box">
+    <button onclick="setDay('mañana',false)">Mañana</button>
+    <button onclick="setDay('tarde',false)">Tarde</button>
+    <button onclick="setDay('tarde',true)">Festivo (x2)</button>
+    <button onclick="setDay('mañana',true)">Mañana Festivo (x2)</button>
+    <button onclick="closePopup()">Cancelar</button>
+  </div>
+</div>
+
 <script>
-const PRICE_MIN = 0.23;
-const MORNING_MIN = 420; // 7h
-const AFTERNOON_MIN = 390; // 14:00 a 20:30
-const REST_AFTER = 6; // descansas cada 6 días
+const RATE = 0.23;
+const SHIFTS = {
+  mañana:{start:7*60,end:14*60},
+  tarde:{start:14*60,end:20*60+30}
+};
 
-const now = new Date();
-const key = `${now.getFullYear()}-${now.getMonth()}`;
-let data = JSON.parse(localStorage.getItem(key)) || {};
+let data = JSON.parse(localStorage.getItem("days")) || {};
+let selectedDay=null;
 
-const cal = document.getElementById("calendar");
+const today=new Date();
+const y=today.getFullYear(), m=today.getMonth(), d=today.getDate();
 
-function calc(){
-  let totalMin=0;
-  let streak=0;
-  let maxStreak=0;
-  let lastDay=null;
+function key(day){return `${y}-${m+1}-${day}`}
 
-  const days = Object.keys(data).map(Number).sort((a,b)=>a-b);
-
-  days.forEach(d=>{
-    const day=data[d];
-    let min = day.shift==="mañana" ? MORNING_MIN : AFTERNOON_MIN;
-    if(day.festivo) min*=2;
-    totalMin+=min;
-
-    if(lastDay===d-1) streak++;
-    else streak=1;
-    maxStreak=Math.max(maxStreak,streak);
-    lastDay=d;
-  });
-
-  document.getElementById("hours").innerText=(totalMin/60).toFixed(2);
-  document.getElementById("money").innerText=(totalMin*PRICE_MIN).toFixed(2);
-  document.getElementById("streak").innerText="🔥"+streak;
-  document.getElementById("rest").innerText=Math.max(REST_AFTER-streak,0);
+function openPopup(day){
+  selectedDay=day;
+  document.getElementById("popup").style.display="flex";
 }
-
-function save(){
-  localStorage.setItem(key,JSON.stringify(data));
+function closePopup(){
+  document.getElementById("popup").style.display="none";
+}
+function setDay(shift,festivo){
+  data[key(selectedDay)]={shift,festivo};
+  localStorage.setItem("days",JSON.stringify(data));
+  closePopup();
   render();
 }
 
 function render(){
+  const cal=document.getElementById("calendar");
   cal.innerHTML="";
-  const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+
   for(let i=1;i<=daysInMonth;i++){
-    const d=document.createElement("div");
-    d.className="day";
-    d.innerText=i;
+    const el=document.createElement("div");
+    el.className="day";
+    el.textContent=i;
+    const k=key(i);
 
-    if(data[i]){
-      d.classList.add("work");
-      if(data[i].festivo) d.classList.add("double");
+    if(data[k]){
+      el.classList.add("work");
+      if(data[k].festivo) el.classList.add("festivo");
     }
-
-    d.onclick=()=>{
-      const worked=confirm("¿Has trabajado?");
-      if(!worked){ delete data[i]; save(); return; }
-
-      const morning=confirm("¿Turno de mañana?");
-      const festivo=confirm("¿Es festivo?");
-
-      data[i]={shift: morning?"mañana":"tarde", festivo};
-      save();
-    };
-
-    cal.appendChild(d);
+    el.onclick=()=>openPopup(i);
+    cal.appendChild(el);
   }
   calc();
 }
 
-render();
-</script>
+function calc(){
+  let totalMin=0;
+  let todayMin=0;
 
+  const nowMin=today.getHours()*60+today.getMinutes();
+
+  Object.keys(data).forEach(k=>{
+    const [yy,mm,dd]=k.split("-").map(Number);
+    const conf=data[k];
+    const shift=SHIFTS[conf.shift];
+    let min=shift.end-shift.start;
+
+    if(dd===d){
+      todayMin=Math.max(0,Math.min(nowMin,shift.end)-shift.start);
+      min=todayMin;
+    }
+    if(conf.festivo) min*=2;
+    totalMin+=min;
+  });
+
+  document.getElementById("todayTime").textContent=format(todayMin);
+  document.getElementById("todayMoney").textContent=(todayMin*RATE).toFixed(2)+" €";
+  document.getElementById("totalHours").textContent=(totalMin/60).toFixed(2);
+  document.getElementById("totalMoney").textContent=(totalMin*RATE).toFixed(2);
+  document.getElementById("streak").textContent="🔥"+calcStreak();
+}
+
+function calcStreak(){
+  let c=0;
+  for(let i=d;i>0;i--){
+    if(data[key(i)]) c++;
+    else break;
+  }
+  return c;
+}
+
+function format(min){
+  const h=Math.floor(min/60);
+  const m=min%60;
+  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}`;
+}
+
+render();
+setInterval(calc,1000);
+</script>
 </body>
 </html>
