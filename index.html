@@ -176,6 +176,12 @@ body{
       <input id="initMoney" type="number" step="0.01" style="width:100%;margin:6px 0;padding:8px;background:#000;color:#fff;border:1px solid #fff">
       <label>Inicial horas</label>
       <input id="initHours" type="number" step="0.01" style="width:100%;margin:6px 0;padding:8px;background:#000;color:#fff;border:1px solid #fff">
+      <label>Turno por defecto (solo si quieres aplicarlo)</label>
+      <select id="defaultShift" style="width:100%;margin:6px 0;padding:8px;background:#000;color:#fff;border:1px solid #fff">
+        <option value="">(ninguno)</option>
+        <option value="mañana">Mañana</option>
+        <option value="tarde">Tarde</option>
+      </select>
     </div>
     <button onclick="saveSettings()">Guardar</button>
     <button onclick="closeSettings()">Cancelar</button>
@@ -191,6 +197,7 @@ const SHIFTS={
 
 let days=JSON.parse(localStorage.getItem("days"))||{};
 let months=JSON.parse(localStorage.getItem("months"))||{};
+let DEFAULT_SHIFT = localStorage.getItem('DEFAULT_SHIFT') || ''; // '' | 'mañana' | 'tarde'
 
 // Valores iniciales solicitados por el usuario
 let INITIAL_LIFE_MONEY = 8597; // euros
@@ -287,8 +294,20 @@ function render(){
   for(let i=1;i<=daysInMonth;i++){
     const key = k(i);
     const conf = days[key];
+    // calcular la fecha del día i
+    const dayDate = new Date(y, m, i);
+    // no contar días futuros
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if(dayDate.getTime() > todayDateOnly.getTime()) continue;
     if(conf && conf.off) continue; // skip fiesta
-    const shift = (conf && conf.shift) ? conf.shift : 'tarde';
+
+    let shift = null;
+    if(conf && conf.shift) shift = conf.shift;
+    else if(conf && conf.festivo) shift = 'tarde'; // festivo explícito cuenta como trabajado
+    else if(!conf && DEFAULT_SHIFT) shift = DEFAULT_SHIFT; // aplicar default solo si existe y es pasado/presente
+
+    if(!shift) continue; // no contar días no marcados si no hay default
+
     let min = SHIFTS[shift].e - SHIFTS[shift].s;
     if(conf && conf.festivo) min *= 2;
     monthMin += min;
@@ -312,11 +331,13 @@ function render(){
   // calcular racha: contar días consecutivos hacia atrás desde hoy
   // - días sin marcar cuentan como trabajados
   // - días marcados con `off` rompen la racha
+  // - días no marcados solo cuentan si existe DEFAULT_SHIFT
   function computeStreak(){
     let streak = 0;
     const todayDate = new Date();
+    const todayOnly = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
     for(let i=0;i<365;i++){
-      const d = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate()-i);
+      const d = new Date(todayOnly.getFullYear(), todayOnly.getMonth(), todayOnly.getDate()-i);
       const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
       const conf = days[key];
 
@@ -326,18 +347,17 @@ function render(){
       }
 
       if(conf && (conf.shift || conf.festivo)){
-        // día marcado (mañana/tarde) o festivo doble: cuenta como trabajado
         streak++;
         continue;
       }
 
-      if(!conf){
-        // día no marcado: lo tratamos como trabajado (suma a la racha)
+      // no conf: solo contar si existe DEFAULT_SHIFT
+      if(!conf && DEFAULT_SHIFT){
         streak++;
         continue;
       }
 
-      // cualquier otra configuración explícita inesperada rompe la racha
+      // día no marcado y sin DEFAULT_SHIFT: rompe la racha
       break;
     }
     return streak;
@@ -382,29 +402,35 @@ function updateTodayRemaining(){
   if(todayConf && todayConf.off){
     // fallthrough: buscar siguiente turno más abajo
   } else {
-    // usar la configuración de hoy si existe y tiene shift, sino usar 'tarde' por defecto
-    const usedConf = (todayConf && todayConf.shift) ? todayConf : { shift: 'tarde', festivo: false };
-    const baseStart = SHIFTS[usedConf.shift].s;
-    const baseDuration = SHIFTS[usedConf.shift].e - SHIFTS[usedConf.shift].s;
-    const durationMin = usedConf.festivo ? baseDuration * 2 : baseDuration;
-    const startMin = baseStart;
-    const endMin = startMin + durationMin;
-    const startSec = startMin * 60;
-    const endSec = endMin * 60;
+    // usar la configuración de hoy si existe y tiene shift,
+    // sino usar DEFAULT_SHIFT (si el usuario lo configuró). Si no hay ninguno, tratar como no hay turno.
+    let usedConf = null;
+    if(todayConf && todayConf.shift) usedConf = todayConf;
+    else if(DEFAULT_SHIFT) usedConf = { shift: DEFAULT_SHIFT, festivo: false };
 
-    if(nowSec < startSec){
-      const untilStart = startSec - nowSec;
-      el.classList.remove('almost');
-      el.innerText = `${formatSeconds(untilStart)}`; // compacto: sólo cadena
-      return;
-    }
+    if(usedConf){
+      const baseStart = SHIFTS[usedConf.shift].s;
+      const baseDuration = SHIFTS[usedConf.shift].e - SHIFTS[usedConf.shift].s;
+      const durationMin = usedConf.festivo ? baseDuration * 2 : baseDuration;
+      const startMin = baseStart;
+      const endMin = startMin + durationMin;
+      const startSec = startMin * 60;
+      const endSec = endMin * 60;
 
-    if(nowSec >= startSec && nowSec < endSec){
-      const totalRemaining = endSec - nowSec;
-      const remainingSec = Math.max(0, totalRemaining - 3600);
-      if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
-      el.innerText = `${formatSeconds(remainingSec)}`; // compacto: sólo cadena
-      return;
+      if(nowSec < startSec){
+        const untilStart = startSec - nowSec;
+        el.classList.remove('almost');
+        el.innerText = `${formatSeconds(untilStart)}`; // compacto: sólo cadena
+        return;
+      }
+
+      if(nowSec >= startSec && nowSec < endSec){
+        const totalRemaining = endSec - nowSec;
+        const remainingSec = Math.max(0, totalRemaining - 3600);
+        if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
+        el.innerText = `${formatSeconds(remainingSec)}`; // compacto: sólo cadena
+        return;
+      }
     }
   }
 
@@ -434,6 +460,7 @@ setInterval(updateTodayRemaining, 1000);
 function openSettings(){
   document.getElementById('initMoney').value = INITIAL_LIFE_MONEY;
   document.getElementById('initHours').value = INITIAL_LIFE_HOURS;
+  document.getElementById('defaultShift').value = DEFAULT_SHIFT || '';
   document.getElementById('settingsPopup').style.display = 'flex';
 }
 function closeSettings(){
@@ -445,6 +472,9 @@ function saveSettings(){
   INITIAL_LIFE_MONEY = m; INITIAL_LIFE_HOURS = h; INITIAL_LIFE_MIN = Math.round(h*60);
   localStorage.setItem('INITIAL_LIFE_MONEY', INITIAL_LIFE_MONEY);
   localStorage.setItem('INITIAL_LIFE_HOURS', INITIAL_LIFE_HOURS);
+  const def = document.getElementById('defaultShift').value || '';
+  DEFAULT_SHIFT = def;
+  localStorage.setItem('DEFAULT_SHIFT', DEFAULT_SHIFT);
   closeSettings(); render();
 }
 </script>
