@@ -3,198 +3,202 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Curro</title>
+<title>Contador Curro</title>
 
-<link rel="icon" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
-@font-face{
-  font-family:Digital;
-  src:url("https://fonts.gstatic.com/s/digital7/d-6IYplOFocCacKzxw.ttf");
-}
-
 body{
   margin:0;
   background:#000;
   color:#fff;
-  font-family:Arial,sans-serif;
-  text-align:center;
-  padding:15px;
-}
-
-.digital{font-family:Digital;}
-.big{font-size:2.2em}
-.medium{font-size:1.5em}
-.small{font-size:1.1em}
-.tiny{font-size:.9em;color:#aaa}
-
-.line{width:80%;border-top:1px solid #fff;margin:14px auto}
-
-.clock{font-size:3em;margin-bottom:15px}
-
-#calendar{
-  display:grid;
-  grid-template-columns:repeat(7,42px);
-  gap:6px;
+  font-family: 'Orbitron', monospace;
+  display:flex;
   justify-content:center;
 }
-
-.week{font-size:10px;opacity:.6}
-
-.day{
-  border:1px solid #fff;
-  border-radius:6px;
-  padding:4px 0;
-  font-size:11px;
+.app{
+  width:100%;
+  max-width:420px;
+  padding:16px;
 }
-
-.red{background:#400}
-.festive{border:2px solid gold}
-.today{outline:2px solid #fff}
-
-select{
+h1{
+  text-align:center;
+  margin-bottom:10px;
+}
+.stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.card{
+  border:1px solid #fff;
+  padding:10px;
+  text-align:center;
+  font-size:14px;
+}
+.big{
+  font-size:26px;
+}
+.fire{
+  font-size:22px;
+}
+.calendar{
+  margin-top:15px;
+}
+.week{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  text-align:center;
+  font-size:12px;
+  opacity:.7;
+}
+.days{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+  margin-top:6px;
+}
+.day{
+  border:1px solid #555;
+  padding:10px 0;
+  text-align:center;
+  font-size:14px;
+  cursor:pointer;
+}
+.work{
+  background:#fff;
+  color:#000;
+}
+.double{
+  background:#fff;
+  color:#000;
+  box-shadow:0 0 10px #fff;
+}
+.controls{
+  margin-top:15px;
+  display:flex;
+  gap:10px;
+}
+button{
+  flex:1;
   background:#000;
   color:#fff;
-  border:1px solid #333;
-  font-size:9px;
+  border:1px solid #fff;
+  padding:10px;
+  font-family:inherit;
 }
 </style>
 </head>
 
 <body>
+<div class="app">
 
-<div id="clock" class="digital clock">00:00:00</div>
+<h1>CURRO</h1>
 
-<div class="small">HOY</div>
-<div id="todayTime" class="digital medium">00:00</div>
-<div id="todayMoney" class="digital small">0,00 €</div>
+<div class="stats">
+  <div class="card">
+    DÍAS<br><span id="days" class="big">0</span>
+  </div>
+  <div class="card">
+    HORAS<br><span id="hours" class="big">0</span>
+  </div>
+  <div class="card">
+    €<br><span id="money" class="big">0</span>
+  </div>
+  <div class="card">
+    RACHA<br><span id="streak" class="fire">🔥0</span>
+  </div>
+</div>
 
-<div class="line"></div>
+<div class="calendar">
+  <div class="week">
+    <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
+  </div>
+  <div class="days" id="calendar"></div>
+</div>
 
-<div class="small">TOTAL</div>
-<div id="totalTime" class="digital big">00:00</div>
-<div id="totalMoney" class="digital big">0,00 €</div>
+<div class="controls">
+  <button onclick="setMorning()">MAÑANA</button>
+  <button onclick="setDouble()">DOBLE</button>
+</div>
 
-<div class="line"></div>
-
-<div class="tiny">🔥 RACHA</div>
-<div id="streak" class="digital medium">0</div>
-<div class="tiny">faltan <span id="rest">5</span> días para descansar</div>
-
-<div class="line"></div>
-
-<div id="calendar"></div>
+</div>
 
 <script>
-const RATE=14;
-const REST_AFTER=5;
+const calendar = document.getElementById("calendar");
+let data = JSON.parse(localStorage.getItem("workDays")) || {};
 
-const SHIFTS={
-  mañana:{start:420,end:840},
-  tarde:{start:840,end:1230}
-};
+const HOUR_RATE = 10;
+const MORNING_HOURS = 7;
 
-let data=JSON.parse(localStorage.getItem("curro"))||{};
-
-const fmt=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-const key=d=>`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
-
-function clock(){
-  const n=new Date();
-  document.getElementById("clock").textContent=
-  `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}`;
-}
-
-function calendar(){
-  const cal=document.getElementById("calendar");
-  cal.innerHTML="";
-  const now=new Date();
-  const y=now.getFullYear(),m=now.getMonth(),t=now.getDate();
-  const days=new Date(y,m+1,0).getDate();
-  const week=["L","M","X","J","V","S","D"];
-
-  week.forEach(w=>{
-    const e=document.createElement("div");
-    e.className="week";e.textContent=w;
-    cal.appendChild(e);
-  });
-
-  for(let d=1;d<=days;d++){
-    const k=`${y}-${m+1}-${d}`;
-    if(!data[k])data[k]={off:false,shift:"tarde",festive:false,minutes:0};
-
-    const el=document.createElement("div");
-    el.className="day";
-    el.textContent=d;
-    if(data[k].off)el.classList.add("red");
-    if(data[k].festive)el.classList.add("festive");
-    if(d===t)el.classList.add("today");
-
-    el.onclick=()=>{
-      data[k].off=!data[k].off;
-      save();calendar();calc();
-    };
-
-    el.oncontextmenu=e=>{
-      e.preventDefault();
-      data[k].festive=!data[k].festive;
-      save();calendar();calc();
-    };
-
-    cal.appendChild(el);
-  }
-}
-
-function calc(){
-  const now=new Date();
-  const todayKey=key(now);
-  let totalMin=0,totalMoney=0,streak=0;
-
-  Object.keys(data).sort().forEach(k=>{
-    const d=data[k];
-    if(d.off)return;
-
-    let mins=d.minutes;
-    if(k===todayKey){
-      const s=SHIFTS[d.shift];
-      let cur=now.getHours()*60+now.getMinutes();
-      if(cur>s.end)cur=s.end;
-      if(cur>s.start)mins=cur-s.start;
-      d.minutes=mins;
+function buildCalendar(){
+  calendar.innerHTML="";
+  for(let i=1;i<=31;i++){
+    const d=document.createElement("div");
+    d.className="day";
+    d.innerText=i;
+    if(data[i]){
+      d.classList.add("work");
+      if(data[i].double) d.classList.add("double");
     }
-
-    const mult=d.festive?2:1;
-    totalMin+=mins;
-    totalMoney+=(mins/60)*RATE*mult;
-  });
-
-  let keys=Object.keys(data).sort().reverse();
-  for(let k of keys){
-    if(!data[k].off && data[k].minutes>0)streak++;
-    else break;
+    d.onclick=()=>toggleDay(i);
+    calendar.appendChild(d);
   }
+  calculate();
+}
 
-  document.getElementById("todayTime").textContent=fmt(data[todayKey]?.minutes||0);
-  document.getElementById("todayMoney").textContent=((data[todayKey]?.minutes||0)/60*RATE).toFixed(2)+" €";
-  document.getElementById("totalTime").textContent=fmt(totalMin);
-  document.getElementById("totalMoney").textContent=totalMoney.toFixed(2)+" €";
-  document.getElementById("streak").textContent="🔥 "+streak;
-  document.getElementById("rest").textContent=Math.max(0,REST_AFTER-streak);
-
+function toggleDay(day){
+  if(data[day]) delete data[day];
+  else data[day]={hours:0,double:false};
   save();
 }
 
-function save(){
-  localStorage.setItem("curro",JSON.stringify(data));
+function setMorning(){
+  const today=new Date().getDate();
+  data[today]={hours:MORNING_HOURS,double:false};
+  save();
 }
 
-calendar();
-clock();
-calc();
-setInterval(clock,1000);
-setInterval(calc,1000);
+function setDouble(){
+  const today=new Date().getDate();
+  if(data[today]){
+    data[today].double=true;
+    save();
+  }
+}
+
+function calculate(){
+  let days=0,hours=0,money=0;
+  let workedDays=Object.keys(data).map(Number).sort((a,b)=>a-b);
+
+  workedDays.forEach(d=>{
+    days++;
+    let h=data[d].hours;
+    let m=h*HOUR_RATE;
+    if(data[d].double) m*=2;
+    hours+=h;
+    money+=m;
+  });
+
+  // racha
+  let streak=0;
+  for(let i=workedDays.length-1;i>=0;i--){
+    if(i===workedDays.length-1 || workedDays[i]===workedDays[i+1]-1) streak++;
+    else break;
+  }
+
+  document.getElementById("days").innerText=days;
+  document.getElementById("hours").innerText=hours;
+  document.getElementById("money").innerText=money;
+  document.getElementById("streak").innerText="🔥"+streak;
+}
+
+function save(){
+  localStorage.setItem("workDays",JSON.stringify(data));
+  buildCalendar();
+}
+
+buildCalendar();
 </script>
 
 </body>
