@@ -93,6 +93,7 @@ body{
   font-size:11px;
   text-align:center;
 }
+.almost{ color:#2ecc71; font-weight:700 }
 </style>
 </head>
 
@@ -334,6 +335,7 @@ function updateTodayRemaining(){
   if(nowSec < startSec){
     // Mostrar cuenta atrás hasta el inicio del turno
     const untilStart = startSec - nowSec;
+    el.classList.remove('almost');
     el.innerText = `Empieza en: ${formatSeconds(untilStart)}`;
     return;
   }
@@ -342,11 +344,14 @@ function updateTodayRemaining(){
     // Durante el turno: tiempo restante real = tiempo hasta fin - 1h (3600s)
     const totalRemaining = endSec - nowSec;
     const remainingSec = Math.max(0, totalRemaining - 3600);
+    // aplicar clase verde si queda ≤ 1h real
+    if(remainingSec > 0 && remainingSec <= 3600) el.classList.add('almost'); else el.classList.remove('almost');
     el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
     return;
   }
 
   // Tras el turno
+  el.classList.remove('almost');
   el.innerText = 'Te queda de curro real: 00:00:00';
 }
 
