@@ -323,21 +323,31 @@ function updateTodayRemaining(){
     return;
   }
   const conf = days[key];
-  const startMin = SHIFTS[conf.shift].s;
-  const endMin = SHIFTS[conf.shift].e;
-  const startSec = startMin*60;
-  const endSec = endMin*60;
-  // restar 1h (3600s) del tiempo efectivo de trabajo
-  let remainingSec = 0;
+  const baseStart = SHIFTS[conf.shift].s;
+  const baseDuration = SHIFTS[conf.shift].e - SHIFTS[conf.shift].s;
+  const durationMin = conf.festivo ? baseDuration * 2 : baseDuration;
+  const startMin = baseStart;
+  const endMin = startMin + durationMin;
+  const startSec = startMin * 60;
+  const endSec = endMin * 60;
+
   if(nowSec < startSec){
-    // antes de empezar: full shift minus 1h
-    remainingSec = Math.max(0, (endSec - startSec) - 3600);
-  } else if(nowSec >= startSec && nowSec < endSec){
-    remainingSec = Math.max(0, (endSec - nowSec) - 3600);
-  } else {
-    remainingSec = 0;
+    // Mostrar cuenta atrás hasta el inicio del turno
+    const untilStart = startSec - nowSec;
+    el.innerText = `Empieza en: ${formatSeconds(untilStart)}`;
+    return;
   }
-  el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
+
+  if(nowSec >= startSec && nowSec < endSec){
+    // Durante el turno: tiempo restante real = tiempo hasta fin - 1h (3600s)
+    const totalRemaining = endSec - nowSec;
+    const remainingSec = Math.max(0, totalRemaining - 3600);
+    el.innerText = `Te queda de curro real: ${formatSeconds(remainingSec)}`;
+    return;
+  }
+
+  // Tras el turno
+  el.innerText = 'Te queda de curro real: 00:00:00';
 }
 
 updateTodayRemaining();
